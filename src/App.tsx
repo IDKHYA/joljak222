@@ -26,7 +26,7 @@ export default function App() {
 
   const handleQuestionnaireComplete = async (scores: QuestionnaireScores, responses: Record<string, string>) => {
     if (!photoData) {
-      setError('사진 분석 데이터가 없습니다. 먼저 사진을 촬영한 뒤 다시 진행해주세요.');
+      setError('사진 분석 데이터가 없습니다. 먼저 얼굴 사진을 촬영한 뒤 다시 진행해 주세요.');
       setStep('photo');
       return;
     }
@@ -40,7 +40,7 @@ export default function App() {
       setStep('result');
     } catch (caughtError) {
       console.error(caughtError);
-      setError('분석 결과를 정리하는 중 문제가 발생했습니다. 설문 단계부터 다시 시도해주세요.');
+      setError('결과를 정리하는 중 문제가 발생했습니다. 설문 단계부터 다시 진행해 주세요.');
       setStep('questionnaire');
     }
   };
@@ -53,39 +53,43 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-zinc-100 selection:text-zinc-950">
-      <div className="fixed inset-0 bg-[linear-gradient(to_right,#18181b_1px,transparent_1px),linear-gradient(to_bottom,#18181b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
+    <div className="min-h-screen bg-[linear-gradient(180deg,#fffdf8_0%,#f8f5ef_48%,#f3efe7_100%)] text-stone-900 selection:bg-stone-900 selection:text-stone-50">
+      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,#ffffff_0%,transparent_52%),linear-gradient(to_right,rgba(120,113,108,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(120,113,108,0.06)_1px,transparent_1px)] bg-[size:auto,4rem_4rem,4rem_4rem]" />
 
-      <header className="relative z-10 p-6 flex justify-between items-center max-w-7xl mx-auto">
-        <div className="flex items-center gap-2 group cursor-pointer" onClick={reset}>
-          <div className="w-8 h-8 bg-zinc-100 rounded-lg flex items-center justify-center group-hover:rotate-12 transition-transform">
-            <Palette className="w-5 h-5 text-zinc-950" />
+      <header className="relative z-10 max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+        <button type="button" onClick={reset} className="flex items-center gap-3 text-left">
+          <div className="w-10 h-10 rounded-2xl bg-stone-900 text-white flex items-center justify-center shadow-sm">
+            <Palette className="w-5 h-5" />
           </div>
-          <span className="font-light tracking-tighter text-xl">Palette Workbook Analyzer</span>
-        </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Personal Color</p>
+            <p className="text-xl font-semibold tracking-tight">퍼스널컬러 진단 워크북</p>
+          </div>
+        </button>
+
         <div className="flex items-center gap-4">
-          <div className="hidden md:flex items-center gap-1 text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
-            <span className={step === 'photo' ? 'text-zinc-100' : ''}>Photo</span>
-            <span className="mx-1 opacity-20">/</span>
-            <span className={step === 'questionnaire' ? 'text-zinc-100' : ''}>Questionnaire</span>
-            <span className="mx-1 opacity-20">/</span>
-            <span className={step === 'result' ? 'text-zinc-100' : ''}>Workbook</span>
+          <div className="hidden md:flex items-center gap-2 rounded-full border border-stone-200 bg-white/80 px-4 py-2 text-[11px] font-medium text-stone-500 shadow-sm backdrop-blur">
+            <span className={step === 'photo' ? 'text-stone-900' : ''}>사진</span>
+            <span>/</span>
+            <span className={step === 'questionnaire' ? 'text-stone-900' : ''}>설문</span>
+            <span>/</span>
+            <span className={step === 'result' ? 'text-stone-900' : ''}>결과</span>
           </div>
           {step !== 'intro' && (
-            <Button variant="ghost" size="sm" onClick={reset} className="text-zinc-500 hover:text-zinc-300">
+            <Button variant="ghost" size="sm" onClick={reset} className="text-stone-600 hover:bg-white/80 hover:text-stone-900">
               <RefreshCw className="w-4 h-4 mr-2" />
-              초기화
+              처음부터
             </Button>
           )}
         </div>
       </header>
 
-      <main className="relative z-10 max-w-7xl mx-auto px-6 pt-10 md:pt-20 pb-16">
+      <main className="relative z-10 max-w-7xl mx-auto px-6 pt-8 md:pt-14 pb-16">
         {error && (
           <div className="max-w-3xl mx-auto mb-8">
-            <Alert className="border-red-500/20 bg-red-500/10 text-red-100">
+            <Alert className="border-red-200 bg-red-50 text-red-900">
               <TriangleAlert className="h-4 w-4" />
-              <AlertTitle>분석 흐름 오류</AlertTitle>
+              <AlertTitle>진행 중 오류가 발생했습니다</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           </div>
@@ -98,14 +102,18 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="max-w-4xl mx-auto text-center space-y-12"
+              className="max-w-5xl mx-auto text-center space-y-12"
             >
               <div className="space-y-6">
-                <h1 className="text-5xl md:text-7xl font-light tracking-tighter leading-[0.95]">
-                  엑셀 팔레트 기준의 <span className="italic font-serif">퍼스널 컬러 분석</span>
+                <p className="text-sm uppercase tracking-[0.45em] text-stone-500">Face Sampling + Workbook Matching</p>
+                <h1 className="text-5xl md:text-7xl font-semibold tracking-tight leading-[0.94] text-stone-950">
+                  얼굴 색과 질문 응답을 함께 보는
+                  <span className="block font-serif italic font-normal text-stone-700">12계절 퍼스널컬러 분석</span>
                 </h1>
-                <p className="text-zinc-500 text-lg md:text-xl font-light max-w-2xl mx-auto">
-                  실시간 얼굴 랜드마크 추적, ROI 샘플링, 12시즌 24색 엑셀 팔레트 비교, 설문 정규화를 한 번에 묶어 결과를 계산합니다.
+                <p className="text-lg md:text-xl text-stone-600 leading-relaxed max-w-3xl mx-auto">
+                  얼굴 사진에서 피부, 머리, 눈, 입술 색을 추출하고, 설문으로 온도감과 선명도, 명도, 대비를 함께 확인해
+                  12계절 퍼스널컬러를 해석합니다. 질문마다 실제 색감을 보여줘서 선택 기준도 더 직관적으로 이해할 수 있도록
+                  구성했습니다.
                 </p>
               </div>
 
@@ -115,25 +123,37 @@ export default function App() {
                     setError(null);
                     setStep('photo');
                   }}
-                  className="bg-zinc-100 text-zinc-950 hover:bg-zinc-300 px-10 py-8 rounded-full text-lg font-medium group transition-all active:scale-95"
+                  className="rounded-full bg-stone-900 px-10 py-8 text-lg font-medium text-white hover:bg-stone-700"
                 >
-                  분석 시작
-                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  진단 시작하기
+                  <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
                 {[
-                  { icon: Camera, title: '실시간 얼굴 추적', desc: 'MediaPipe Face Landmarker로 랜드마크와 샘플링 ROI를 영상 위에 표시합니다.' },
-                  { icon: ClipboardList, title: '설문 정규화', desc: '온도, 명도, 채도, 대비 축을 정규화해서 사진 결과와 함께 반영합니다.' },
-                  { icon: Sparkles, title: '엑셀 팔레트 매칭', desc: '12시즌 24색 팔레트와의 거리 비교로 최종 시즌을 계산합니다.' },
+                  {
+                    icon: Camera,
+                    title: '얼굴 색 추출',
+                    desc: 'MediaPipe 랜드마크를 바탕으로 볼, 이마, 눈가, 턱선, 홍채, 눈썹, 입술, 헤어라인의 색을 정량화합니다.',
+                  },
+                  {
+                    icon: ClipboardList,
+                    title: '이해되는 설문',
+                    desc: '흰색, 선명한 색, 뮤트 컬러처럼 실제 색 샘플을 함께 보여주어 질문 의도를 눈으로 확인할 수 있습니다.',
+                  },
+                  {
+                    icon: Sparkles,
+                    title: '12계절 결과 해석',
+                    desc: '4계절 대분류와 12계절 세부 분류의 관계, 인접 시즌, 추천 팔레트까지 결과 화면에서 함께 설명합니다.',
+                  },
                 ].map((item) => (
-                  <Card key={item.title} className="bg-zinc-900/20 border-zinc-800/50 backdrop-blur-sm">
+                  <Card key={item.title} className="border-stone-200 bg-white/80 shadow-sm backdrop-blur">
                     <CardContent className="p-6 text-left space-y-4">
-                      <item.icon className="w-6 h-6 text-zinc-600" />
+                      <item.icon className="w-6 h-6 text-stone-500" />
                       <div className="space-y-2">
-                        <h3 className="text-zinc-200 font-medium">{item.title}</h3>
-                        <p className="text-zinc-500 text-sm font-light leading-relaxed">{item.desc}</p>
+                        <h3 className="text-stone-900 font-semibold">{item.title}</h3>
+                        <p className="text-sm leading-relaxed text-stone-600">{item.desc}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -143,38 +163,38 @@ export default function App() {
           )}
 
           {step === 'photo' && (
-            <motion.div key="photo" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.04 }} className="max-w-4xl mx-auto">
+            <motion.div key="photo" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }}>
               <PhotoAnalyzer onAnalysisComplete={handlePhotoComplete} />
             </motion.div>
           )}
 
           {step === 'questionnaire' && (
-            <motion.div key="questionnaire" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="max-w-4xl mx-auto">
+            <motion.div key="questionnaire" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }}>
               <Questionnaire onComplete={handleQuestionnaireComplete} />
             </motion.div>
           )}
 
           {step === 'fusing' && (
-            <motion.div key="fusing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-24 space-y-8">
+            <motion.div key="fusing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-28 space-y-8">
               <div className="relative">
-                <div className="w-24 h-24 border-2 border-zinc-800 rounded-full animate-ping opacity-20" />
+                <div className="w-24 h-24 rounded-full border border-stone-300 animate-ping opacity-40" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <RefreshCw className="w-10 h-10 text-zinc-400 animate-spin" />
+                  <RefreshCw className="w-10 h-10 text-stone-600 animate-spin" />
                 </div>
               </div>
               <div className="text-center space-y-2">
-                <h2 className="text-2xl font-light tracking-tight text-zinc-200">엑셀 기준 시즌 점수를 정리하는 중</h2>
-                <p className="text-zinc-500 font-mono text-xs uppercase tracking-widest">Workbook Fusion Engine</p>
+                <h2 className="text-2xl font-semibold tracking-tight text-stone-900">사진과 설문을 함께 정리하고 있습니다</h2>
+                <p className="text-sm uppercase tracking-[0.35em] text-stone-500">Hybrid Workbook Engine</p>
               </div>
             </motion.div>
           )}
 
           {step === 'result' && finalResult && photoData && (
-            <motion.div key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-6xl mx-auto">
+            <motion.div key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <ResultDisplay result={finalResult} photoData={photoData} />
               <div className="flex justify-center mt-12">
-                <Button variant="outline" onClick={reset} className="border-zinc-800 text-zinc-400 hover:bg-zinc-900 px-8 py-6 rounded-full">
-                  새 분석 시작
+                <Button variant="outline" onClick={reset} className="rounded-full border-stone-300 bg-white px-8 py-6 text-stone-700 hover:bg-stone-100">
+                  다시 분석하기
                 </Button>
               </div>
             </motion.div>

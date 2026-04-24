@@ -1,356 +1,323 @@
-import { QUESTIONS, QUESTIONNAIRE_AXES } from '../constants';
-import { SEASON_ORDER, SEASON_PROFILES, WORKBOOK_SOURCE } from '../personalColorWorkbook';
-import { clamp, colorTemperatureIndex, deltaE, hexToRgb, luminance, normalize, parseRgbString, rgbToHsl, rgbToLab } from './colorUtils';
-import { ExtractedColors, FinalResult, MeasurementDetails, PhotoAnalysisResult, QuestionnaireScores, RoiMeasurement, SeasonId } from '../types';
+﻿import { QUESTIONS } from '@/src/constants';
+import { SEASON_PROFILES, SEASON_ORDER, WORKBOOK_SOURCE } from '@/src/personalColorWorkbook';
+import { SEASON_DETAILS } from '@/src/seasonContent';
+import {
+  ExtractedColors,
+  FinalResult,
+  MeasurementDetails,
+  PhotoAnalysisResult,
+  QuestionnaireScores,
+  SeasonId,
+} from '@/src/types';
+import {
+  clamp,
+  colorTemperatureIndex,
+  deltaE,
+  hexToRgb,
+  luminance,
+  normalize,
+  parseRgbString,
+  rgbToHsl,
+  rgbToLab,
+} from '@/src/services/colorUtils';
 
-const paletteLabCache = new Map<string, ReturnType<typeof rgbToLab>>();
-
-function getPaletteLab(hex: string) {
-  if (!paletteLabCache.has(hex)) {
-    paletteLabCache.set(hex, rgbToLab(hexToRgb(hex)));
-  }
-  return paletteLabCache.get(hex)!;
+interface AnalyzePhotoColorsInput {
+  extractedColors: ExtractedColors;
+  photoQuality: number;
+  measurementDetails: MeasurementDetails;
 }
 
-function scoreToProbabilities(scores: Record<SeasonId, number>) {
-  const min = Math.min(...Object.values(scores));
-  const shifted = Object.fromEntries(
-    Object.entries(scores).map(([key, value]) => [key, Math.max(0.0001, value - min + 0.0001)]),
-  ) as Record<SeasonId, number>;
-  const total = Object.values(shifted).reduce((sum, value) => sum + value, 0);
-  return Object.fromEntries(Object.entries(shifted).map(([key, value]) => [key, value / total])) as Record<SeasonId, number>;
+const PHOTO_TRAIT_WEIGHTS = {
+  temperature: 0.38,
+  lightness: 0.18,
+  clarity: 0.24,
+  contrast: 0.2,
+} as const;
+
+const QUESTION_TRAIT_WEIGHTS = {
+  temperature: 0.38,
+  lightness: 0.2,
+  clarity: 0.25,
+  contrast: 0.17,
+} as const;
+
+function round4(value: number) {
+  return Number(value.toFixed(4));
 }
 
-function pairDistanceScore(value: number, target: number, tolerance = 1) {
-  return clamp(1 - Math.abs(value - target) / (2 * tolerance), 0, 1);
+function average(values: number[]) {
+  return values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1);
 }
 
-function describeTemperature(value: number) {
-  if (value > 0.18) return '웜';
-  if (value < -0.18) return '쿨';
-  return '중성';
+function closeness(value: number, target: number) {
+  return clamp(1 - Math.abs(value - target) / 2, 0, 1);
 }
 
-function describeClarity(value: number) {
-  if (value > 0.25) return '클리어';
-  if (value < -0.25) return '뮤트';
-  return '중간';
+function normalizeSeasonScores(scores: Record<SeasonId, number>) {
+  const entries = SEASON_ORDER.map((id) => [id, scores[id]] as const);
+  const total = entries.reduce((sum, [, score]) => sum + score, 0) || 1;
+  return Object.fromEntries(entries.map(([id, score]) => [id, score / total])) as Record<SeasonId, number>;
 }
 
-function describeLightness(value: number) {
-  if (value > 0.35) return '라이트';
-  if (value < -0.35) return '딥';
-  return '미디엄';
-}
-
-function describeContrast(value: number) {
-  if (value > 0.35) return '고대비';
-  if (value < -0.35) return '저대비';
-  return '중간 대비';
-}
-
-function sortSeasonEntries(scores: Record<SeasonId, number>) {
+function rankSeasonScores(scores: Record<SeasonId, number>) {
   return [...SEASON_ORDER]
-    .map((id) => ({ id, score: scores[id], profile: SEASON_PROFILES[id] }))
-    .sort((left, right) => right.score - left.score);
+    .map((seasonId) => ({ seasonId, score: scores[seasonId] }))
+    .sort((a, b) => b.score - a.score);
 }
 
-function weightedAverage(values: Array<[number, number]>) {
-  const totalWeight = values.reduce((sum, [, weight]) => sum + weight, 0);
-  if (totalWeight === 0) return 0;
-  return values.reduce((sum, [value, weight]) => sum + value * weight, 0) / totalWeight;
-}
-
-function summarizeResponses(rawResponses: Record<string, string>) {
-  const labels = QUESTIONS.map((question) => {
-    const selected = question.options.find((option) => option.value === rawResponses[question.id]);
-    return selected?.label;
-  }).filter(Boolean);
-
-  return labels.slice(0, 3).join(', ');
-}
-
-function scoreQuestionnaireSeasons(questionnaireScores: QuestionnaireScores) {
-  const scores = {} as Record<SeasonId, number>;
-
-  for (const id of SEASON_ORDER) {
-    const profile = SEASON_PROFILES[id];
-    scores[id] =
-      pairDistanceScore(questionnaireScores.temperature, profile.traits.temperature, 1) * 0.38 +
-      pairDistanceScore(questionnaireScores.lightness, profile.traits.lightness, 1) * 0.2 +
-      pairDistanceScore(questionnaireScores.clarity, profile.traits.clarity, 1) * 0.25 +
-      pairDistanceScore(questionnaireScores.contrast, profile.traits.contrast, 1) * 0.17;
-  }
-
-  return scoreToProbabilities(scores);
-}
-
-function getFeatureVector(extractedColors: ExtractedColors) {
+function measureColorFeatures(extractedColors: ExtractedColors) {
   const skin = parseRgbString(extractedColors.skin);
   const hair = parseRgbString(extractedColors.hair);
   const eyes = parseRgbString(extractedColors.eyes);
   const lips = parseRgbString(extractedColors.lips);
 
-  const skinHsl = rgbToHsl(skin);
-  const hairHsl = rgbToHsl(hair);
-  const eyeHsl = rgbToHsl(eyes);
-  const lipHsl = rgbToHsl(lips);
+  const hsl = {
+    skin: rgbToHsl(skin),
+    hair: rgbToHsl(hair),
+    eyes: rgbToHsl(eyes),
+    lips: rgbToHsl(lips),
+  };
 
-  const temperature = weightedAverage([
-    [colorTemperatureIndex(skin), 0.45],
-    [colorTemperatureIndex(lips), 0.25],
-    [colorTemperatureIndex(hair), 0.15],
-    [colorTemperatureIndex(eyes), 0.15],
-  ]);
+  const luminances = {
+    skin: luminance(skin),
+    hair: luminance(hair),
+    eyes: luminance(eyes),
+    lips: luminance(lips),
+  };
 
-  const lightness = normalize(
-    weightedAverage([
-      [luminance(skin) * 2 - 1, 0.45],
-      [luminance(lips) * 2 - 1, 0.2],
-      [luminance(eyes) * 2 - 1, 0.15],
-      [luminance(hair) * 2 - 1, 0.2],
-    ]),
-    1,
-  );
-
-  const averageSaturation = weightedAverage([
-    [skinHsl.s, 0.4],
-    [lipHsl.s, 0.25],
-    [eyeHsl.s, 0.2],
-    [hairHsl.s, 0.15],
-  ]);
-
-  const clarity = clamp(averageSaturation * 2 - 1, -1, 1);
-  const mutedScore = clamp(1 - averageSaturation, 0, 1);
-  const contrast = clamp(
-    (Math.max(luminance(skin), luminance(hair), luminance(eyes), luminance(lips)) -
-      Math.min(luminance(skin), luminance(hair), luminance(eyes), luminance(lips))) *
-      2 -
-      0.15,
+  const temperature = clamp(
+    colorTemperatureIndex(skin) * 0.45 +
+      colorTemperatureIndex(lips) * 0.25 +
+      colorTemperatureIndex(hair) * 0.15 +
+      colorTemperatureIndex(eyes) * 0.15,
     -1,
     1,
   );
 
-  return { skin, hair, eyes, lips, temperature, lightness, clarity, contrast, mutedScore };
-}
+  const lightness = clamp(
+    (luminances.skin * 0.45 + luminances.lips * 0.2 + luminances.eyes * 0.15 + luminances.hair * 0.2) * 2 - 1,
+    -1,
+    1,
+  );
 
-function buildRoiMeasurement(
-  label: string,
-  color: { r: number; g: number; b: number },
-  region: { x: number; y: number; width: number; height: number },
-): RoiMeasurement {
-  const lab = rgbToLab(color);
-  const hsl = rgbToHsl(color);
+  const averageSaturation = average([hsl.skin.s * 0.4, hsl.lips.s * 0.25, hsl.eyes.s * 0.2, hsl.hair.s * 0.15]);
+  const clarity = clamp(averageSaturation * 2 - 1, -1, 1);
+  const mutedScore = clamp(1 - averageSaturation, 0, 1);
+
+  const contrastRaw = Math.max(...Object.values(luminances)) - Math.min(...Object.values(luminances));
+  const contrast = clamp(contrastRaw * 2 - 0.15, -1, 1);
 
   return {
-    label,
-    color: `rgb(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)})`,
-    rgb: { r: Math.round(color.r), g: Math.round(color.g), b: Math.round(color.b) },
-    lab: {
-      l: Number(lab.l.toFixed(2)),
-      a: Number(lab.a.toFixed(2)),
-      b: Number(lab.b.toFixed(2)),
-    },
-    hsl: {
-      h: Number((hsl.h * 360).toFixed(2)),
-      s: Number((hsl.s * 100).toFixed(2)),
-      l: Number((hsl.l * 100).toFixed(2)),
-    },
-    region: {
-      x: Math.round(region.x),
-      y: Math.round(region.y),
-      width: Math.round(region.width),
-      height: Math.round(region.height),
+    colors: { skin, hair, eyes, lips },
+    normalizedFeatures: {
+      temperature: round4(temperature),
+      lightness: round4(lightness),
+      clarity: round4(clarity),
+      contrast: round4(contrast),
+      mutedScore: round4(mutedScore),
     },
   };
 }
 
-interface AnalyzePhotoInput {
-  extractedColors: ExtractedColors;
-  photoQuality: number;
-  measurementDetails?: MeasurementDetails;
+function scorePaletteMatch(colorCss: string, palette: string[]) {
+  const sampleLab = rgbToLab(parseRgbString(colorCss));
+  const distances = palette.map((hex) => deltaE(sampleLab, rgbToLab(hexToRgb(hex))));
+  const bestDistance = Math.min(...distances);
+  return clamp(1 - bestDistance / 65, 0, 1);
 }
 
-export function analyzePhotoColors(input: AnalyzePhotoInput): PhotoAnalysisResult {
-  const { extractedColors, photoQuality, measurementDetails } = input;
-  const features = getFeatureVector(extractedColors);
-  const sampleLabs = {
-    skin: rgbToLab(features.skin),
-    hair: rgbToLab(features.hair),
-    eyes: rgbToLab(features.eyes),
-    lips: rgbToLab(features.lips),
-  };
+function scoreSeasonTraits(features: QuestionnaireScores, seasonId: SeasonId, weights: typeof PHOTO_TRAIT_WEIGHTS | typeof QUESTION_TRAIT_WEIGHTS) {
+  const traits = SEASON_PROFILES[seasonId].traits;
+  return clamp(
+    closeness(features.temperature, traits.temperature) * weights.temperature +
+      closeness(features.lightness, traits.lightness) * weights.lightness +
+      closeness(features.clarity, traits.clarity) * weights.clarity +
+      closeness(features.contrast, traits.contrast) * weights.contrast,
+    0,
+    1,
+  );
+}
 
-  const rawScores = {} as Record<SeasonId, number>;
-
-  for (const id of SEASON_ORDER) {
-    const profile = SEASON_PROFILES[id];
-    const nearestDistance = (lab: ReturnType<typeof rgbToLab>) =>
-      profile.palette.reduce((best, hex) => Math.min(best, deltaE(lab, getPaletteLab(hex))), Number.POSITIVE_INFINITY);
-
-    const paletteScore = weightedAverage([
-      [clamp(1 - nearestDistance(sampleLabs.skin) / 42, 0, 1), 0.45],
-      [clamp(1 - nearestDistance(sampleLabs.hair) / 55, 0, 1), 0.2],
-      [clamp(1 - nearestDistance(sampleLabs.eyes) / 52, 0, 1), 0.15],
-      [clamp(1 - nearestDistance(sampleLabs.lips) / 44, 0, 1), 0.2],
-    ]);
-
-    const traitScore =
-      pairDistanceScore(features.temperature, profile.traits.temperature, 1) * 0.38 +
-      pairDistanceScore(features.lightness, profile.traits.lightness, 1) * 0.18 +
-      pairDistanceScore(features.clarity, profile.traits.clarity, 1) * 0.24 +
-      pairDistanceScore(features.contrast, profile.traits.contrast, 1) * 0.2;
-
-    rawScores[id] = paletteScore * 0.68 + traitScore * 0.32;
+function boundaryNote(topSeasonId: SeasonId, secondSeasonId: SeasonId, gap: number) {
+  const top = SEASON_DETAILS[topSeasonId];
+  const second = SEASON_DETAILS[secondSeasonId];
+  if (gap < 0.06) {
+    return `${top.title}와 ${second.title} 경계에 가까운 결과입니다. 상황에 따라 두 시즌의 색을 함께 참고하면 좋습니다.`;
   }
+  if (top.adjacent.includes(secondSeasonId)) {
+    return `${top.title}이 우세하지만 인접 시즌인 ${second.title}의 일부 톤도 자연스럽게 활용할 수 있습니다.`;
+  }
+  return `${top.title} 축이 비교적 분명하게 우세한 결과입니다.`;
+}
 
-  const seasonScores = scoreToProbabilities(rawScores);
-  const sorted = sortSeasonEntries(seasonScores);
-  const topScore = sorted[0]?.score ?? 0.25;
-  const topSeasonScores = sorted.slice(0, 5).map(({ id, score, profile }) => ({
-    seasonId: id,
-    seasonName: profile.name,
-    score: Number((score * 100).toFixed(2)),
+function temperatureLabel(value: number) {
+  if (value > 0.18) return 'warm';
+  if (value < -0.18) return 'cool';
+  return value >= 0 ? 'warm' : 'cool';
+}
+
+export function calculateQuestionnaireScores(rawResponses: Record<string, string>): QuestionnaireScores {
+  const totals: QuestionnaireScores = {
+    temperature: 0,
+    lightness: 0,
+    clarity: 0,
+    contrast: 0,
+  };
+  const maximums: QuestionnaireScores = {
+    temperature: 0,
+    lightness: 0,
+    clarity: 0,
+    contrast: 0,
+  };
+
+  QUESTIONS.forEach((question) => {
+    question.options.forEach((option) => {
+      maximums.temperature += Math.max(0, Math.abs(option.weights.temperature ?? 0));
+      maximums.lightness += Math.max(0, Math.abs(option.weights.lightness ?? 0));
+      maximums.clarity += Math.max(0, Math.abs(option.weights.clarity ?? 0));
+      maximums.contrast += Math.max(0, Math.abs(option.weights.contrast ?? 0));
+    });
+
+    const selected = question.options.find((option) => option.value === rawResponses[question.id]);
+    if (!selected) return;
+
+    totals.temperature += selected.weights.temperature ?? 0;
+    totals.lightness += selected.weights.lightness ?? 0;
+    totals.clarity += selected.weights.clarity ?? 0;
+    totals.contrast += selected.weights.contrast ?? 0;
+  });
+
+  return {
+    temperature: round4(normalize(totals.temperature, maximums.temperature / 3)),
+    lightness: round4(normalize(totals.lightness, maximums.lightness / 3)),
+    clarity: round4(normalize(totals.clarity, maximums.clarity / 3)),
+    contrast: round4(normalize(totals.contrast, maximums.contrast / 3)),
+  };
+}
+
+export function analyzePhotoColors(input: AnalyzePhotoColorsInput): PhotoAnalysisResult {
+  const featureBundle = measureColorFeatures(input.extractedColors);
+  const features = featureBundle.normalizedFeatures;
+
+  const rawSeasonScores = Object.fromEntries(
+    SEASON_ORDER.map((seasonId) => {
+      const palette = SEASON_PROFILES[seasonId].palette;
+      const paletteScore =
+        scorePaletteMatch(input.extractedColors.skin, palette) * 0.45 +
+        scorePaletteMatch(input.extractedColors.hair, palette) * 0.2 +
+        scorePaletteMatch(input.extractedColors.eyes, palette) * 0.15 +
+        scorePaletteMatch(input.extractedColors.lips, palette) * 0.2;
+      const traitScore = scoreSeasonTraits(features, seasonId, PHOTO_TRAIT_WEIGHTS);
+      return [seasonId, round4(paletteScore * 0.68 + traitScore * 0.32)];
+    }),
+  ) as Record<SeasonId, number>;
+
+  const seasonScores = normalizeSeasonScores(rawSeasonScores);
+  const ranked = rankSeasonScores(seasonScores);
+  const topSeasonScores = ranked.slice(0, 4).map((item) => ({
+    seasonId: item.seasonId,
+    seasonName: SEASON_PROFILES[item.seasonId].name,
+    score: Number((item.score * 100).toFixed(2)),
   }));
 
   return {
-    temperature: features.temperature >= 0 ? 'warm' : 'cool',
-    temperatureConfidence: clamp(Math.abs(features.temperature) * 0.55 + topScore * 0.35 + photoQuality * 0.1, 0.45, 0.96),
+    temperature: temperatureLabel(features.temperature),
+    temperatureConfidence: round4(clamp(Math.abs(features.temperature) * 0.7 + input.photoQuality * 0.3, 0, 1)),
     seasonScores,
     mutedScore: features.mutedScore,
-    photoQuality,
-    extractedColors,
+    photoQuality: round4(input.photoQuality),
+    extractedColors: input.extractedColors,
     measurementDetails: {
-      faceBounds: measurementDetails?.faceBounds ?? { x: 0, y: 0, width: 0, height: 0 },
-      normalizedFeatures: {
-        temperature: Number(features.temperature.toFixed(4)),
-        lightness: Number(features.lightness.toFixed(4)),
-        clarity: Number(features.clarity.toFixed(4)),
-        contrast: Number(features.contrast.toFixed(4)),
-        mutedScore: Number(features.mutedScore.toFixed(4)),
-      },
-      qualityBreakdown: measurementDetails?.qualityBreakdown ?? {
-        overall: Number(photoQuality.toFixed(4)),
-        exposure: Number(photoQuality.toFixed(4)),
-        symmetry: 0,
-        distinctness: 0,
-        faceSize: 0,
-      },
-      roiMeasurements:
-        measurementDetails?.roiMeasurements ?? [
-          buildRoiMeasurement('피부', features.skin, { x: 0, y: 0, width: 0, height: 0 }),
-          buildRoiMeasurement('머리', features.hair, { x: 0, y: 0, width: 0, height: 0 }),
-          buildRoiMeasurement('눈동자', features.eyes, { x: 0, y: 0, width: 0, height: 0 }),
-          buildRoiMeasurement('입술', features.lips, { x: 0, y: 0, width: 0, height: 0 }),
-        ],
+      ...input.measurementDetails,
+      normalizedFeatures: features,
       topSeasonScores,
     },
   };
 }
 
-export function fuseResults(photoData: PhotoAnalysisResult, questionnaireScores: QuestionnaireScores, rawResponses: Record<string, string>): FinalResult {
-  const questionnaireSeasonScores = scoreQuestionnaireSeasons(questionnaireScores);
+export function fuseResults(
+  photoData: PhotoAnalysisResult,
+  questionnaireScores: QuestionnaireScores,
+  rawResponses: Record<string, string>,
+): FinalResult {
+  const questionnaireRawScores = Object.fromEntries(
+    SEASON_ORDER.map((seasonId) => [seasonId, scoreSeasonTraits(questionnaireScores, seasonId, QUESTION_TRAIT_WEIGHTS)]),
+  ) as Record<SeasonId, number>;
+  const questionnaireScoresNormalized = normalizeSeasonScores(questionnaireRawScores);
 
-  const photoWeight = clamp(0.18 + photoData.photoQuality * 0.22, 0.18, 0.42);
-  const questionnaireWeight = 1 - photoWeight;
+  const photoWeight = round4(clamp(0.18 + photoData.photoQuality * 0.1, 0.18, 0.28));
+  const questionnaireWeight = round4(1 - photoWeight);
 
-  const fusedScores = {} as Record<SeasonId, number>;
-  for (const id of SEASON_ORDER) {
-    fusedScores[id] = photoData.seasonScores[id] * photoWeight + questionnaireSeasonScores[id] * questionnaireWeight;
-  }
+  const fusedRaw = Object.fromEntries(
+    SEASON_ORDER.map((seasonId) => {
+      const photoScore = photoData.seasonScores[seasonId] ?? 0;
+      const questionScore = questionnaireScoresNormalized[seasonId] ?? 0;
+      return [seasonId, photoScore * photoWeight + questionScore * questionnaireWeight];
+    }),
+  ) as Record<SeasonId, number>;
 
-  const normalizedScores = scoreToProbabilities(fusedScores);
-  const [first, second] = sortSeasonEntries(normalizedScores);
-  const photoTop = sortSeasonEntries(photoData.seasonScores)[0];
-  const questionTop = sortSeasonEntries(questionnaireSeasonScores)[0];
+  const fusedScores = normalizeSeasonScores(fusedRaw);
+  const ranked = rankSeasonScores(fusedScores);
+  const [first, second] = ranked;
+  const topSeason = SEASON_PROFILES[first.seasonId];
+  const secondSeason = SEASON_PROFILES[second.seasonId];
+  const photoRanked = rankSeasonScores(photoData.seasonScores);
+  const questionRanked = rankSeasonScores(questionnaireScoresNormalized);
+  const photoTop = photoRanked[0];
+  const questionTop = questionRanked[0];
+  const gap = first.score - second.score;
+  const consistency =
+    photoTop.seasonId === questionTop.seasonId
+      ? 'high'
+      : SEASON_PROFILES[photoTop.seasonId].family === SEASON_PROFILES[questionTop.seasonId].family
+        ? 'medium'
+        : 'low';
 
-  const temperatureAgreement =
-    (photoData.temperature === 'warm' && questionnaireScores.temperature >= 0) ||
-    (photoData.temperature === 'cool' && questionnaireScores.temperature < 0);
-  const familyAgreement = photoTop.profile.family === questionTop.profile.family;
-  const consistency = familyAgreement && temperatureAgreement ? 'high' : temperatureAgreement || familyAgreement ? 'medium' : 'low';
+  const confidenceBoost = consistency === 'high' ? 0.08 : consistency === 'medium' ? 0.03 : 0;
+  const confidence = clamp(0.42 + first.score * 0.28 + gap * 1.35 + photoData.photoQuality * 0.12 + confidenceBoost, 0, 0.99);
 
-  const confidence = clamp(
-    0.42 +
-      first.score * 0.28 +
-      (first.score - second.score) * 1.35 +
-      photoData.photoQuality * 0.12 +
-      (consistency === 'high' ? 0.08 : consistency === 'medium' ? 0.03 : 0),
-    0.45,
-    0.97,
-  );
-
-  const decisionType = photoWeight >= 0.55 ? 'photo' : questionnaireWeight >= 0.55 ? 'questionnaire' : 'hybrid';
-
-  const explanation = [
-    `${first.profile.name} 팔레트가 사진 샘플 색과 가장 가깝고, 설문 축에서는 ${describeTemperature(questionnaireScores.temperature)} 온도와 ${describeClarity(questionnaireScores.clarity)} 채도 성향이 함께 확인되었습니다.`,
-    `사진 품질 점수는 ${Math.round(photoData.photoQuality * 100)}점으로 반영했고, 엑셀 팔레트 24색 거리 비교와 설문 축 정규화를 함께 사용했습니다.`,
-    summarizeResponses(rawResponses) ? `설문에서 특히 "${summarizeResponses(rawResponses)}" 응답이 상위 시즌 판정에 영향을 주었습니다.` : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const explanation = `${topSeason.name} 결과가 가장 높게 나온 이유는 사진에서 읽힌 ${photoData.temperature === 'warm' ? '따뜻한' : '차가운'} 기조와 설문에서 드러난 ${questionnaireScores.clarity >= 0 ? '선명도' : '부드러운 뮤트 성향'}가 ${topSeason.name}의 특성과 가장 가깝게 맞았기 때문입니다. ${SEASON_DETAILS[first.seasonId].commonAliasSentence}`;
 
   return {
-    temperature: first.profile.traits.temperature >= 0 ? 'warm' : 'cool',
-    seasonTop1: first.profile.name,
-    seasonTop2: second.profile.name,
-    confidence,
-    decisionType,
+    temperature: topSeason.traits.temperature >= 0 ? 'warm' : 'cool',
+    seasonTop1Id: first.seasonId,
+    seasonTop1: topSeason.name,
+    seasonTop2Id: second.seasonId,
+    seasonTop2: secondSeason.name,
+    confidence: round4(confidence),
+    decisionType: 'hybrid',
     evidence: {
       photoSignal: {
-        temperature: photoData.temperature === 'warm' ? '웜' : '쿨',
-        confidence: photoData.temperatureConfidence,
-        dominantSeason: photoTop.profile.name,
+        dominantSeasonId: photoTop.seasonId,
+        temperature: photoData.temperature === 'warm' ? '웜 경향' : '쿨 경향',
+        confidence: round4(photoTop.score),
+        dominantSeason: SEASON_PROFILES[photoTop.seasonId].name,
       },
       questionSignal: {
-        temperature: describeTemperature(questionnaireScores.temperature),
-        clarity: describeClarity(questionnaireScores.clarity),
-        confidence: clamp(
-          0.48 +
-            Math.abs(questionnaireScores.temperature) * 0.18 +
-            Math.abs(questionnaireScores.clarity) * 0.18 +
-            Math.abs(questionnaireScores.contrast) * 0.1,
-          0.45,
-          0.92,
-        ),
+        temperature: questionnaireScores.temperature >= 0 ? '웜 응답 우세' : '쿨 응답 우세',
+        clarity: questionnaireScores.clarity >= 0 ? '선명도 선호' : '뮤트 선호',
+        confidence: round4(questionTop.score),
       },
       consistency,
-      workbookBasis: `${WORKBOOK_SOURCE} / ${first.profile.name} 24색 팔레트`,
+      workbookBasis: `${WORKBOOK_SOURCE} / 응답 ${Object.keys(rawResponses).length}개 반영`,
+      fusionWeights: {
+        photo: photoWeight,
+        questionnaire: questionnaireWeight,
+      },
+      boundary: {
+        isBoundary: gap < 0.06,
+        gap: round4(gap),
+        note: boundaryNote(first.seasonId, second.seasonId, gap),
+      },
     },
     recommendationFeatures: {
-      preferredTemperature: first.profile.traits.temperature >= 0 ? '따뜻한 옐로 베이스' : '차가운 블루 베이스',
-      preferredClarity: describeClarity(first.profile.traits.clarity),
-      preferredLightness: describeLightness(first.profile.traits.lightness),
-      contrastLevel: describeContrast(first.profile.traits.contrast),
+      preferredTemperature: topSeason.traits.temperature >= 0 ? '따뜻한 웜톤' : '차갑고 맑은 쿨톤',
+      preferredClarity: topSeason.traits.clarity >= 0.35 ? '선명하고 또렷한 컬러' : topSeason.traits.clarity <= -0.35 ? '회색 한 방울 섞인 뮤트 컬러' : '과하지 않게 정돈된 컬러',
+      preferredLightness: topSeason.traits.lightness >= 0.45 ? '밝고 가벼운 톤' : topSeason.traits.lightness <= -0.45 ? '깊고 짙은 톤' : '중간 명도의 균형 잡힌 톤',
+      contrastLevel: topSeason.traits.contrast >= 0.45 ? '대비가 큰 스타일' : topSeason.traits.contrast <= -0.2 ? '부드럽고 대비가 적은 스타일' : '중간 대비 스타일',
     },
-    palette: first.profile.palette,
+    palette: topSeason.palette,
     extractedColors: photoData.extractedColors,
     explanation,
-  };
-}
-
-export function calculateQuestionnaireScores(rawResponses: Record<string, string>): QuestionnaireScores {
-  const totals: QuestionnaireScores = { temperature: 0, lightness: 0, clarity: 0, contrast: 0 };
-  const axisLimits: QuestionnaireScores = { temperature: 0, lightness: 0, clarity: 0, contrast: 0 };
-
-  for (const question of QUESTIONS) {
-    const selected = question.options.find((option) => option.value === rawResponses[question.id]);
-    if (selected?.weights) {
-      for (const axis of QUESTIONNAIRE_AXES) {
-        totals[axis] += selected.weights[axis] ?? 0;
-      }
-    }
-
-    for (const axis of QUESTIONNAIRE_AXES) {
-      const axisMax = Math.max(...question.options.map((option) => Math.abs(option.weights[axis] ?? 0)), 0);
-      axisLimits[axis] += axisMax;
-    }
-  }
-
-  return {
-    temperature: normalize(totals.temperature, axisLimits.temperature),
-    lightness: normalize(totals.lightness, axisLimits.lightness),
-    clarity: normalize(totals.clarity, axisLimits.clarity),
-    contrast: normalize(totals.contrast, axisLimits.contrast),
   };
 }

@@ -1,4 +1,4 @@
-export type SeasonFamily = 'spring' | 'summer' | 'autumn' | 'winter';
+﻿export type SeasonFamily = 'spring' | 'summer' | 'autumn' | 'winter';
 
 export type SeasonId =
   | 'light-spring'
@@ -62,6 +62,20 @@ export interface MeasurementDetails {
     symmetry: number;
     distinctness: number;
     faceSize: number;
+    background: number;
+  };
+  distributionBreakdown: {
+    overall: number;
+    skin: number;
+    hair: number;
+    eyes: number;
+    lips: number;
+  };
+  lightingCalibration: {
+    backgroundBrightness: number;
+    backgroundNeutrality: number;
+    correctionStrength: number;
+    whiteBackdropRecommended: boolean;
   };
   roiMeasurements: RoiMeasurement[];
   topSeasonScores: Array<{
@@ -83,12 +97,15 @@ export interface PhotoAnalysisResult {
 
 export interface FinalResult {
   temperature: 'warm' | 'cool';
+  seasonTop1Id: SeasonId;
   seasonTop1: string;
+  seasonTop2Id: SeasonId;
   seasonTop2: string;
   confidence: number;
   decisionType: 'hybrid' | 'photo' | 'questionnaire';
   evidence: {
     photoSignal: {
+      dominantSeasonId: SeasonId;
       temperature: string;
       confidence: number;
       dominantSeason: string;
@@ -100,6 +117,15 @@ export interface FinalResult {
     };
     consistency: 'high' | 'medium' | 'low';
     workbookBasis: string;
+    fusionWeights: {
+      photo: number;
+      questionnaire: number;
+    };
+    boundary: {
+      isBoundary: boolean;
+      gap: number;
+      note: string;
+    };
   };
   recommendationFeatures: {
     preferredTemperature: string;
@@ -115,10 +141,15 @@ export interface FinalResult {
 export interface Question {
   id: string;
   text: string;
+  kind?: 'signal';
+  helperText?: string;
   options: {
     label: string;
     value: string;
     weights: Partial<QuestionnaireScores>;
+    description?: string;
+    swatches?: string[];
+    swatchCaption?: string;
   }[];
 }
 
@@ -138,3 +169,5 @@ export interface SeasonProfile {
   };
   palette: string[];
 }
+
+

@@ -1,0 +1,273 @@
+import React, { useState } from 'react';
+import { ChevronDown, Plus } from 'lucide-react';
+
+// 진행률 바 컴포넌트
+const ProgressBar = ({ label, score, average, scoreColor = "bg-purple-600" }) => {
+  return (
+    <div className="mb-8 relative mt-6">
+      <div className="flex items-center mb-2">
+        <span className="w-20 text-sm font-medium text-gray-700 leading-tight whitespace-pre-line">{label}</span>
+        <div className="flex-1 relative h-6 bg-gray-200 rounded-full">
+          {/* 점수 바 */}
+          <div 
+            className={`absolute top-0 left-0 h-full rounded-full flex items-center px-3 text-white text-xs font-bold ${scoreColor}`}
+            style={{ width: `${Math.max(score, 10)}%` }} // 최소 너비 보장
+          >
+            {score}
+          </div>
+          
+          {/* 평균 마커 */}
+          <div 
+            className="absolute flex flex-col items-center"
+            style={{ 
+              left: `${average}%`, 
+              top: '-24px',
+              transform: 'translateX(-50%)' 
+            }}
+          >
+            <div className="bg-gray-700 text-white text-[10px] px-2 py-0.5 rounded-full mb-1 shadow-sm">
+              평균 {average}
+            </div>
+            <div className="h-6 border-l border-dashed border-gray-500"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('신체색 분석 결과');
+
+  const tabs = ['신체색 분석 결과', '나의 컬러팔레트'];
+
+  // 컬러 데이터
+  const bestColors = ['#9A1A1E', '#B35A1A', '#DE8C26', '#528213', '#326084', '#111111', '#664023', '#A87239', '#465F17', '#5E2380'];
+  const similarColors = ['#CC7E83', '#D09E96', '#E2C1AC', '#A2C288', '#86A7C5', '#9A7496'];
+  const worstColors = ['#FFC2F5', '#FFFFB8', '#A8F2ED', '#85AAFF', '#AE77FF'];
+  const winterStrongPalette = ['#9A1A1E', '#D93282', '#EFE038', '#004D40', '#000000', '#0000FF', '#000080', '#490D80'];
+
+  return (
+    <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center font-sans text-gray-800 md:py-12 md:px-4">
+      {/* 메인 컨테이너: 모바일에서는 전체 너비, 데스크탑에서는 디바이스 목업 형태의 부드러운 카드 뷰 적용 */}
+      <div className="w-full max-w-[480px] bg-white min-h-screen md:min-h-[800px] md:max-h-[90vh] md:rounded-[2.5rem] md:shadow-2xl md:border md:border-gray-100 overflow-hidden flex flex-col relative">
+        
+        {/* 상단 헤더 영역 */}
+        <div className="p-6 pb-4">
+          <p className="text-sm font-medium text-amber-700 mb-1">화려함의 인간화</p>
+          <h1 className="text-2xl font-bold leading-tight mb-4">
+            신나는옐로우4853님은<br/>
+            가을 스트롱(Autumn Strong) 타입이에요!
+          </h1>
+          <p className="text-sm text-gray-500 leading-relaxed mb-4">
+            가을의 단풍 축제와 황금빛 벌판이 연상되는 가을 스트롱은 멋스
+            럽고 화려한 10월의 색감이 가장 잘 어울리는 타입이에요. 컬러
+            만 보면 고급스럽고 고져스한 분위기가 느껴지지만, 스타일링에
+            따라 캐주얼하거나 유니크한 무드도 충분히 표현할 수 있어요.
+          </p>
+          <p className="text-xs text-purple-600 font-medium">
+            *가을 딥, 가을 트루라는 명칭으로 불릴 수도 있어요!
+          </p>
+        </div>
+
+        {/* 탭 네비게이션 */}
+        <div className="flex border-b border-gray-200 px-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-3 text-[13px] md:text-sm font-medium text-center relative whitespace-nowrap px-1 ${
+                activeTab === tab ? 'text-gray-900' : 'text-gray-400'
+              }`}
+            >
+              {tab.split(' ').map((word, i) => (
+                <React.Fragment key={i}>
+                  {word}
+                  {i === 0 && tab.split(' ').length > 1 && <br className="md:hidden" />}
+                  {i === 0 && tab.split(' ').length > 1 && <span className="hidden md:inline"> </span>}
+                </React.Fragment>
+              ))}
+              {activeTab === tab && (
+                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-600"></div>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* 탭 컨텐츠 영역 */}
+        <div className="flex-1 bg-gray-50 overflow-y-auto">
+          
+          {/* 탭 1: 신체색 분석 결과 */}
+          {activeTab === '신체색 분석 결과' && (
+            <div className="p-5 md:p-6 space-y-8 pb-20">
+              
+              {/* 신체색 분석 그래프 섹션 */}
+              <section>
+                <h2 className="text-lg font-bold mb-4">신나는옐로우4853님의 신체색 분석</h2>
+                <div className="bg-white rounded-2xl p-5 md:p-6 shadow-sm relative">
+                  <ProgressBar label={"피부\n밝기"} score={66} average={68} />
+                  <ProgressBar label={"피부\n채도"} score={35} average={35} />
+                  <ProgressBar label={"피부\n황색도"} score={23} average={18} />
+                  <ProgressBar label={"눈동자\n밝기"} score={0} average={14} />
+                </div>
+                <p className="text-sm text-gray-600 leading-relaxed mt-4 px-1">
+                  가을 스트롱 유형은 황금빛의 골든브라운의 중명도 피부와 어두운 갈색 눈동자를 가진 경우가 많아요. 타고난 헤어 컬러는 진한 고동색이나 블랙에 가까워 전반적으로 어둡고 선명한 편이에요. 그래프를 통해 전체 유형 평균과 내 신체색을 비교해 보세요!
+                </p>
+              </section>
+
+              {/* 서브 유형 섹션 */}
+              <section className="relative">
+                <div className="flex items-center mb-2">
+                  <h2 className="text-lg font-bold">컬러 활용이 더 다채로워지는 서브 유형</h2>
+                </div>
+                <p className="text-sm text-gray-600 leading-relaxed mb-6">
+                  꼭 베스트 컬러만 사용해야 하는 건 아니에요! 서브 유형을 활용하면 다양한 컬러를 함께 활용할 수 있답니다! 같은 퍼스널컬러 유형이더라도 온도(따뜻함/차가움), 명도(밝기), 채도(색의 선명도) 중 어떤 요소에 더 영향을 받느냐에 따라 어울리는 서브 유형이 다를 수 있어요.
+                  <br/><br/>
+                  아래 설명을 참고해 신나는옐로우4853님의 서브 유형을 확인해 보세요.
+                </p>
+
+                {/* 아코디언 메뉴들 */}
+                <div className="space-y-3">
+                  {/* 열린 상태의 서브 유형 (겨울 스트롱) */}
+                  <div className="bg-purple-50 rounded-2xl p-5 relative border border-purple-100">
+                    <h3 className="text-xl font-bold text-purple-800 mb-4">겨울 스트롱</h3>
+                    <p className="font-bold text-gray-900 mb-2">웜쿨 상관없이 잘 어울려요.</p>
+                    <p className="text-sm text-gray-700 leading-relaxed mb-4">
+                      중간 밝기의 선명한 컬러가 잘 어울리는 타입이라, 쿨톤 컬러도 부담 없이 소화할 수 있어요.
+                    </p>
+                    <div className="flex h-6 rounded-md overflow-hidden">
+                      {winterStrongPalette.map((color, idx) => (
+                        <div key={idx} className="flex-1" style={{ backgroundColor: color }}></div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 닫힌 상태의 서브 유형 (봄 비비드) */}
+                  <div className="bg-[#f2f8e2] rounded-2xl p-4 flex justify-between items-center cursor-pointer">
+                    <h3 className="text-lg font-bold text-[#8fc94c]">봄 비비드</h3>
+                    <div className="w-6 h-6 rounded-full bg-[#8fc94c] flex items-center justify-center text-white">
+                      <Plus size={16} strokeWidth={3} />
+                    </div>
+                  </div>
+
+                  {/* 닫힌 상태의 서브 유형 (가을 뮤트) */}
+                  <div className="bg-[#faebe1] rounded-2xl p-4 flex justify-between items-center cursor-pointer">
+                    <h3 className="text-lg font-bold text-[#c4978e]">가을 뮤트</h3>
+                    <div className="w-6 h-6 rounded-full bg-[#c4978e] flex items-center justify-center text-white">
+                      <Plus size={16} strokeWidth={3} />
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* 탭 2: 나의 컬러팔레트 */}
+          {activeTab === '나의 컬러팔레트' && (
+            <div className="p-5 md:p-6 bg-white space-y-10 pb-20">
+              
+              {/* 컬러 특징 설명 */}
+              <section>
+                <h2 className="text-lg font-bold mb-3">가을 스트롱은 어떤 컬러일까요?</h2>
+                <p className="text-sm text-gray-600 leading-relaxed mb-6">
+                  가을 스트롱은 노란빛이 도는 짙고 또렷한 컬러예요.<br/>
+                  명도는 중간이거나 낮고 채도는 높아 PCCS 색체계 중간 아래 영역에 위치해 있어요.
+                </p>
+
+                {/* PCCS 색체계 모식도 (CSS로 간략히 구현) */}
+                <div className="relative mb-6">
+                  <div className="text-center font-bold text-sm mb-4 tracking-widest">WARM TONE</div>
+                  <div className="flex border-l-2 border-b-2 border-gray-200 relative h-64 md:h-72 w-full p-4 pl-8">
+                    {/* 축 라벨 */}
+                    <div className="absolute -left-6 top-1/2 -rotate-90 text-xs text-gray-400 font-medium tracking-widest transform -translate-y-1/2">Brightness</div>
+                    <div className="absolute -bottom-6 right-0 text-xs text-gray-400 font-medium tracking-widest">Saturation →</div>
+                    
+                    {/* 차트 내부 원형들 (가상 배치) */}
+                    <div className="w-full h-full relative">
+                      {/* 흐린 톤들 */}
+                      <div className="absolute top-0 left-[20%] w-12 h-12 rounded-full border-2 border-dotted border-gray-300 opacity-30 flex items-center justify-center text-[10px] text-gray-400">pale</div>
+                      <div className="absolute top-[10%] right-[30%] w-14 h-14 rounded-full border-2 border-dotted border-gray-300 opacity-40 flex items-center justify-center text-[10px] text-gray-400">light</div>
+                      <div className="absolute top-[25%] right-[10%] w-16 h-16 rounded-full border-2 border-dotted border-gray-300 opacity-50 flex items-center justify-center text-[10px] text-gray-400">bright</div>
+                      
+                      {/* 강한 톤들 (하이라이트) */}
+                      <div className="absolute top-[45%] right-[30%] w-14 h-14 rounded-full border-[3px] border-amber-500 shadow-md flex items-center justify-center flex-wrap content-center gap-1 bg-white z-10">
+                         <div className="w-2 h-2 rounded-full bg-red-600"></div><div className="w-2 h-2 rounded-full bg-orange-500"></div><div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                         <div className="w-2 h-2 rounded-full bg-green-600"></div><div className="w-2 h-2 rounded-full bg-blue-600"></div><div className="w-2 h-2 rounded-full bg-purple-600"></div>
+                         <span className="w-full text-center text-[10px] font-bold mt-1">strong</span>
+                      </div>
+                      
+                      {/* 딥 톤들 (하이라이트) */}
+                      <div className="absolute top-[65%] right-[35%] w-14 h-14 rounded-full border-[3px] border-blue-900 shadow-md flex items-center justify-center flex-wrap content-center gap-1 bg-white z-10">
+                         <div className="w-2 h-2 rounded-full bg-red-900"></div><div className="w-2 h-2 rounded-full bg-amber-800"></div><div className="w-2 h-2 rounded-full bg-yellow-800"></div>
+                         <div className="w-2 h-2 rounded-full bg-green-900"></div><div className="w-2 h-2 rounded-full bg-blue-900"></div><div className="w-2 h-2 rounded-full bg-purple-900"></div>
+                         <span className="w-full text-center text-[10px] font-bold mt-1">deep</span>
+                      </div>
+                      
+                      {/* 어두운 톤들 */}
+                      <div className="absolute bottom-[5%] left-[20%] w-14 h-14 rounded-full border-2 border-dotted border-gray-300 opacity-40 flex items-center justify-center text-[10px] text-gray-400 text-center leading-tight">dark<br/>grayish</div>
+                      <div className="absolute bottom-[10%] left-[45%] w-14 h-14 rounded-full border-2 border-dotted border-gray-300 opacity-50 flex items-center justify-center text-[10px] text-gray-400">dark</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-purple-50 rounded-xl p-4 md:p-5 mt-8">
+                  <h4 className="font-bold text-sm mb-2 text-gray-800">*PCCS 색체계란?</h4>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    PCCS색체계는 '톤(명도 + 채도)' 개념을 바탕으로 색을 체계적으로 분류한 표준 색체계예요.
+                    퍼스널컬러 진단, 뷰티 업계, 색채 교육 분야에서도 가장 널리 활용되는 기준이라, 컬러를 처음 접하는 분들도 이해하기 쉽고 실생활에 바로 적용하기 좋아요. 그래서 마이컬러는 누구나 보기 쉽고 실용적인 PCCS색체계를 선택했어요.
+                  </p>
+                </div>
+              </section>
+
+              {/* 베스트 컬러 */}
+              <section className="relative">
+                <h2 className="text-lg font-bold mb-2">신나는옐로우4853님의 베스트 컬러</h2>
+                <p className="text-sm text-gray-500 mb-4">풍부하고 화려한 컬러가 가장 잘 어울려요!</p>
+                <div className="grid grid-cols-5 gap-2 mb-8">
+                  {bestColors.map((color, idx) => (
+                    <div 
+                      key={`best-${idx}`} 
+                      className="aspect-square rounded-lg shadow-sm"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </section>
+
+              {/* 유사 컬러 */}
+              <section>
+                <h3 className="text-[15px] font-bold mb-4">베스트 컬러와 톤이 유사한 컬러를 같이 활용할 수 있어요.</h3>
+                <div className="grid grid-cols-6 gap-2 mb-8">
+                  {similarColors.map((color, idx) => (
+                    <div 
+                      key={`sim-${idx}`} 
+                      className="aspect-square rounded-lg shadow-sm"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </section>
+
+              {/* 워스트 컬러 */}
+              <section className="relative">
+                <h3 className="text-[15px] font-bold mb-2">이런 컬러는 피해주세요</h3>
+                <p className="text-sm text-gray-500 mb-4">페일 핑크, 쿨 민트처럼 블루 베이스의 밝은 색상은 얼굴과 멀리 떨어진 아이템에 사용하는 것이 좋아요.</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {worstColors.map((color, idx) => (
+                    <div 
+                      key={`worst-${idx}`} 
+                      className="aspect-square rounded-lg shadow-sm"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </section>
+
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,20 +1,139 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+﻿# 퍼스널컬러 진단 워크북
 
-# Run and deploy your AI Studio app
+화이트 톤 UI 위에서 `얼굴 색 샘플링 + 설문 응답`을 함께 해석해 12계절 퍼스널컬러를 안내하는 Vite + React 기반 웹 앱입니다.
 
-This contains everything you need to run your app locally.
+이 프로젝트는 단순한 4계절 분류가 아니라, `봄/여름/가을/겨울` 대분류 위에 `12계절 세부 시즌`을 올려서 결과를 설명합니다. 계산은 HEX 팔레트와 시즌별 특성값을 기준으로 유지하고, 결과 화면에서는 실무에서 자주 쓰는 PCCS식 별칭도 함께 보여줍니다. 예를 들어 `소프트 서머`는 `보통 여름 뮤트처럼 부르기도 해요` 같은 방식으로 표시됩니다.
 
-View your app in AI Studio: https://ai.studio/apps/6a53b48e-d284-4ba4-bc76-f41d11e35d5c
+## 주요 기능
 
-## Run Locally
+- `MediaPipe Face Landmarker` 기반 얼굴 인식 및 랜드마크 추적
+- 피부, 머리, 눈동자, 입술, 이마, 눈썹 등 ROI 색상 샘플링
+- RGB, LAB, HSL, 밝기, 대비, 온도감 기반 얼굴 색 정량화
+- 12계절 팔레트와 시즌 traits를 함께 쓰는 하이브리드 사진 판독
+- 실제 색 스와치를 보여주는 설문 UI
+- 사진 결과와 설문 결과를 함께 반영하는 최종 시즌 융합
+- 결과 화면에서 다음 정보 제공
+  - 12계절 메인 시즌
+  - 4계절 대분류 해석
+  - 인접 시즌 설명
+  - 실무 별칭(PCCS식 표현)
+  - 잘 어울리는 색상
+  - 톤이 유사한 보조 활용 색상
+  - 피해야 하는 색상
+  - 측정값 상세 데이터
 
-**Prerequisites:**  Node.js
+## 현재 진단 흐름
 
+1. 얼굴 촬영
+2. MediaPipe로 얼굴 랜드마크 검출
+3. 얼굴 주요 부위의 색상 샘플 추출
+4. 사진 기반 시즌 점수 계산
+5. 설문 응답으로 온도감, 명도, 선명도, 대비 보정
+6. 사진 + 설문 하이브리드 융합
+7. 결과 화면에서 12계절, 별칭, 추천 색, 워스트 색 설명
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 결과 화면 특징
+
+최종 결과 화면은 단순히 시즌 이름만 보여주지 않고, 아래 항목을 함께 설명합니다.
+
+- 왜 이 시즌으로 나왔는지에 대한 자연어 설명
+- 4계절과 12계절의 관계
+- 인접 계절 개념
+- 시즌별 대표 컬러와 보조 활용 컬러
+- 시즌별 피해야 하는 색상
+- `보통 이렇게도 불러요` 형태의 별칭 문구
+
+예시:
+
+- `트루 서머` -> `보통 여름 쿨처럼 부르기도 해요.`
+- `소프트 서머` -> `보통 여름 뮤트처럼 부르기도 해요.`
+- `다크 어텀` -> `보통 가을 딥처럼 부르기도 해요.`
+
+## 질문 UI 특징
+
+설문은 텍스트만으로 묻지 않고, 실제 스와치와 색 이름 캡션을 같이 보여줍니다.
+
+- 흰색 옷 질문: `아이보리 / 순백 / 오프화이트`
+- 선명한 고채도 컬러 질문: `비비드 핑크 / 코발트 / 선명한 그린`
+- 뮤트 컬러 질문: `더스티 로즈 / 세이지 / 토프 / 소프트 모브`
+- 깊이감 질문: `밝은 톤 / 중간 톤 / 깊고 짙은 톤`
+
+즉 사용자가 `이 질문이 어떤 색을 말하는지` 눈으로 바로 이해할 수 있게 구성되어 있습니다.
+
+## 기술 스택
+
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS
+- shadcn/ui
+- Motion
+- MediaPipe Tasks Vision
+- canvas-confetti
+
+## 프로젝트 구조
+
+```text
+src/
+  components/
+    PhotoAnalyzer.tsx      # 얼굴 촬영 및 ROI 색 추출
+    Questionnaire.tsx      # 색상 스와치 기반 설문
+    ResultDisplay.tsx      # 결과 화면
+  services/
+    faceLandmarker.ts      # MediaPipe Face Landmarker 로딩/검출
+    geminiService.ts       # 사진 분석, 설문 점수화, 최종 융합
+    colorUtils.ts          # 색 공간 변환 및 거리 계산
+  personalColorWorkbook.ts # 12시즌 팔레트/traits 데이터
+  seasonContent.ts         # 시즌 설명, PCCS 별칭, 워스트 컬러 메타데이터
+  constants.ts             # 설문 문항과 스와치 데이터
+  types.ts                 # 공통 타입
+  App.tsx                  # 전체 화면 흐름
+```
+
+## 실행 방법
+
+### 요구 사항
+
+- Node.js 18 이상 권장
+- npm
+
+### 설치
+
+```bash
+npm install
+```
+
+### 개발 서버 실행
+
+```bash
+npm run dev
+```
+
+기본 포트는 `3000`입니다.
+
+### 프로덕션 빌드
+
+```bash
+npm run build
+```
+
+### 타입 체크
+
+```bash
+npm run lint
+```
+
+## 참고 사항
+
+- 얼굴 분석은 브라우저 카메라 권한이 필요합니다.
+- MediaPipe 모델 리소스는 런타임에 로드됩니다.
+- 흰 배경에서 촬영하면 배경 간섭이 줄어 측정 안정성에 도움이 됩니다.
+- 현재 계산 엔진은 HEX 팔레트 기반 12계절 체계를 유지하며, PCCS는 결과 설명용 별칭 레이어로만 추가되어 있습니다.
+
+## 관련 파일
+
+- `ui예시.txt`: 결과 화면 구성 참고용 UI 예시
+- `personal_color_12season_24palette_standard_colors_by_season.xlsx`: 시즌별 표준 팔레트 참고 자료
+- `퍼스널컬러_시스템_상세보고서.md`: 시스템 구조 상세 문서
+- `퍼스널컬러_부록_상세표.md`: 가중치/시즌 표 부록
+- `퍼스널컬러_기술검토서.md`: 개선 검토 문서
