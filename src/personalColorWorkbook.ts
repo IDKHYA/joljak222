@@ -1,6 +1,16 @@
+/*
+ * personalColorWorkbook.ts
+ *
+ * 12시즌 퍼스널컬러 기준 데이터를 코드로 변환해 보관하는 파일입니다.
+ * 엑셀 원본의 시즌별 팔레트, 평균 RGB, 명도/채도/온도/대비 통계, 4축 traits를 TypeScript 상수로 제공합니다.
+ *
+ * geminiService.ts는 이 데이터를 사용해 사진에서 추출한 skin/hair/eyes/lips 색상과 시즌 팔레트의 Lab/Delta E 거리를 계산합니다.
+ * ResultDisplay.tsx는 같은 데이터를 결과 팔레트와 설명 화면에 표시하고,
+ * App.tsx의 추천 로직은 최종 시즌 팔레트를 의류 대표 HEX와 비교하는 기준으로 사용합니다.
+ */
 import { SeasonId, SeasonProfile } from './types';
 
-export const WORKBOOK_SOURCE = 'personal_color_12season_24palette.xlsx';
+export const WORKBOOK_SOURCE = 'personal_color_12season_24palette_standard_colors_by_season.xlsx';
 
 export const SEASON_ORDER: SeasonId[] = [
   'light-spring',
@@ -74,13 +84,13 @@ export const SEASON_PROFILES: Record<SeasonId, SeasonProfile> = {
     englishName: 'Soft Summer',
     family: 'summer',
     toneNote: 'soft-cool',
-    traits: { temperature: -0.62, lightness: 0.2, clarity: -1, contrast: -0.1 },
+    traits: { temperature: -0.62, lightness: 0.2, clarity: -1, contrast: -0.38 },
     workbookStats: { averageRgb: [157.5, 153.38, 159.88], averageLightness: 0.6183, averageSaturation: 0.1624, averageTemperature: -0.0093, averageContrast: 0.5608 },
     palette: ['#F3EDEB', '#D9CDC6', '#B7ACA7', '#8A7F7A', '#C89FA4', '#B88C93', '#9F7F87', '#8C6572', '#BDAFC3', '#A693AE', '#9AA7C7', '#7D8EA9', '#6E879C', '#8898A6', '#6D9793', '#8CA59A', '#9CAB8E', '#7E8871', '#6F6578', '#4E5A72', '#D1B8B7', '#D7C3D0', '#B9BEC4', '#6B7077'],
   },
   'soft-autumn': {
     id: 'soft-autumn',
-    name: '소프트 어텀',
+    name: '소프트 오텀',
     englishName: 'Soft Autumn',
     family: 'autumn',
     toneNote: 'soft-warm-muted',
@@ -90,7 +100,7 @@ export const SEASON_PROFILES: Record<SeasonId, SeasonProfile> = {
   },
   'true-autumn': {
     id: 'true-autumn',
-    name: '트루 어텀',
+    name: '트루 오텀',
     englishName: 'True Autumn / Warm Autumn',
     family: 'autumn',
     toneNote: 'warm-rich-earthy',
@@ -100,7 +110,7 @@ export const SEASON_PROFILES: Record<SeasonId, SeasonProfile> = {
   },
   'dark-autumn': {
     id: 'dark-autumn',
-    name: '다크 어텀',
+    name: '다크 오텀',
     englishName: 'Dark Autumn / Deep Autumn',
     family: 'autumn',
     toneNote: 'dark-warm-muted',
@@ -139,3 +149,4 @@ export const SEASON_PROFILES: Record<SeasonId, SeasonProfile> = {
     palette: ['#FFFFFF', '#000000', '#D0D7E2', '#3C4655', '#FF2F92', '#F50087', '#D10073', '#D7263D', '#FF3B30', '#F6F930', '#B7FF00', '#00A86B', '#00B140', '#00D4D8', '#00B7EB', '#2458FF', '#2643C4', '#7A3DF0', '#ECE7FF', '#E3F2FF', '#E5FFF7', '#FF6F61', '#FF4FA3', '#C441FF'],
   },
 };
+

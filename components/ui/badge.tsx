@@ -1,3 +1,10 @@
+/*
+ * badge.tsx
+ *
+ * 짧은 상태값과 라벨을 표시하는 공용 Badge 컴포넌트입니다.
+ * 퍼스널컬러 시즌, 의류 상태, 추천 등급, 카테고리 같은 보조 정보를
+ * 화면 안에서 작고 일관된 형태로 보여주기 위해 사용합니다.
+ */
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"

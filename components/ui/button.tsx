@@ -1,3 +1,12 @@
+/*
+ * button.tsx
+ *
+ * 앱 전반에서 재사용하는 공용 Button 컴포넌트입니다.
+ * Base UI ButtonPrimitive와 class-variance-authority를 조합해 variant/size별 스타일을 제공합니다.
+ *
+ * 도메인 로직은 없지만, 퍼스널컬러 진단, 옷장 추가, 추천 저장, 데일리룩 화면의 주요 사용자 액션 버튼이
+ * 같은 접근성/상태/스타일 규칙을 따르도록 만드는 UI 기반 파일입니다.
+ */
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 

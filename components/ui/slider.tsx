@@ -1,3 +1,10 @@
+/*
+ * slider.tsx
+ *
+ * 숫자 값을 드래그로 조정하는 공용 Slider 컴포넌트입니다.
+ * 현재 도메인 핵심 로직과 직접 연결되지는 않지만,
+ * 향후 추천 가중치, 데일리룩 레이어 크기/회전, 색상 보정 강도 같은 값을 UI에서 조정할 때 재사용할 수 있습니다.
+ */
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 
 import { cn } from "@/lib/utils"

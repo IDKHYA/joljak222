@@ -1,4 +1,14 @@
-﻿import React, { useState } from 'react';
+/*
+ * Questionnaire.tsx
+ *
+ * 퍼스널컬러 진단의 두 번째 단계인 8문항 설문 UI 컴포넌트입니다.
+ * constants.ts의 QUESTIONS 데이터를 순서대로 보여주고, 사용자의 선택을 누적해 QuestionnaireScores로 정규화합니다.
+ *
+ * 설문 축은 temperature, lightness, clarity, contrast 네 가지입니다.
+ * 사진 분석은 실제 색상 데이터라는 장점이 있지만 카메라/조명 오차가 있으므로,
+ * 이 컴포넌트에서 수집한 착용 경험 기반 응답은 geminiService.ts의 최종 융합에서 안정화 신호로 사용됩니다.
+ */
+import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react';
 import { QUESTIONS } from '@/src/constants';
@@ -12,6 +22,8 @@ interface QuestionnaireProps {
   onComplete: (scores: QuestionnaireScores, rawResponses: Record<string, string>) => void;
 }
 
+// 선택지 옆에 예시 색상 팔레트를 보여줍니다.
+// 사용자가 추상적인 문항 대신 실제 색감을 보고 더 쉽게 답하도록 돕습니다.
 function ColorSwatches({ swatches, caption }: { swatches?: string[]; caption?: string }) {
   if (!swatches?.length) return null;
 
@@ -39,6 +51,8 @@ export default function Questionnaire({ onComplete }: QuestionnaireProps) {
   const currentQuestion = QUESTIONS[currentIndex];
   const progress = ((currentIndex + 1) / QUESTIONS.length) * 100;
 
+  // 선택지를 누르면 응답을 저장하고 다음 문항으로 이동합니다.
+  // 마지막 문항에서는 rawResponses를 4축 점수로 변환해 상위 컴포넌트에 전달합니다.
   const handleSelect = (optionValue: string) => {
     const nextResponses = { ...responses, [currentQuestion.id]: optionValue };
     setResponses(nextResponses);

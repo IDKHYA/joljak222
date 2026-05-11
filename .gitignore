@@ -6,3 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+__pycache__/
+*.pyc
+tools/
+docx_render_check/
+*-images/
+*images/
+checklist.md
+context-notes.md
+*.docx

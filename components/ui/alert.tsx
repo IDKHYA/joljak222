@@ -1,3 +1,10 @@
+/*
+ * alert.tsx
+ *
+ * 사용자에게 주의, 오류, 안내 메시지를 보여주는 공용 Alert 컴포넌트입니다.
+ * 카메라 권한 실패, 분석 실패, 추천 조건 부족, 저장 실패 같은 상태를
+ * 일반 텍스트보다 명확한 시각적 블록으로 전달하는 데 사용합니다.
+ */
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 

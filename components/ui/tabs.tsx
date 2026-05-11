@@ -1,3 +1,10 @@
+/*
+ * tabs.tsx
+ *
+ * 여러 보기나 카테고리 그룹을 전환하는 공용 Tabs 컴포넌트입니다.
+ * 옷장 카테고리 필터, 결과 상세 섹션, 설정성 화면처럼 같은 영역 안에서
+ * 관련 콘텐츠를 나눠 보여줄 때 사용할 수 있는 UI 기반입니다.
+ */
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
 import { cva, type VariantProps } from "class-variance-authority"
 

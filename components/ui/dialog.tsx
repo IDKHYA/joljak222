@@ -1,5 +1,13 @@
 "use client"
 
+/*
+ * dialog.tsx
+ *
+ * 모달/다이얼로그 UI를 제공하는 공용 컴포넌트 래퍼입니다.
+ * 결과 상세, 개발자 모드, 확인 안내처럼 현재 화면 위에 부가 정보를 띄워야 할 때 사용합니다.
+ *
+ * Base UI DialogPrimitive를 기반으로 접근성 속성과 오버레이/콘텐츠 스타일을 통일합니다.
+ */
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 

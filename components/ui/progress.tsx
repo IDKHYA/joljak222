@@ -1,3 +1,10 @@
+/*
+ * progress.tsx
+ *
+ * 진행률을 시각화하는 공용 Progress 컴포넌트입니다.
+ * 퍼스널컬러 설문 진행률, 사진 분석 진행 상태, 결과 신뢰도 등
+ * 사용자가 현재 단계와 완료 정도를 이해해야 하는 UI에서 사용할 수 있습니다.
+ */
 "use client"
 
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress"
