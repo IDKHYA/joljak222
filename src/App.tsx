@@ -43,6 +43,7 @@ import Questionnaire from './components/Questionnaire';
 import { SEASON_PROFILES } from './personalColorWorkbook';
 import { FAMILY_GUIDES, FAMILY_LABELS, PERSONAL_COLOR_MODEL_NOTE, SEASON_DETAILS } from './seasonContent';
 import { fuseResults } from './services/geminiService';
+import { TRAINING_CATALOG_ITEMS } from './data/trainingCatalog';
 import { deltaE2000, hexToRgb, rgbToHsl, rgbToLab } from './services/colorUtils';
 import { useWeather } from './hooks/useWeather';
 import { WeatherBand, WEATHER_BANDS } from './lib/weather';
@@ -73,7 +74,7 @@ interface Wardrobe {
   createdAt: string;
 }
 
-interface CatalogItem {
+export interface CatalogItem {
   catalogItemId: string;
   name: string;
   category: ClothingCategory;
@@ -762,7 +763,7 @@ const INITIAL_CATALOG_ITEMS: CatalogItem[] = [
   catalog('catalog-16', '화이트 스니커즈', '신발', '스니커즈', '화이트', '270', 'Clean Step', 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=700&q=80'),
 ];
 
-const ACTIVE_CATALOG_ITEMS = INITIAL_CATALOG_ITEMS;
+const ACTIVE_CATALOG_ITEMS = TRAINING_CATALOG_ITEMS;
 
 // 카탈로그 상품을 사용자의 특정 옷장에 들어가는 실제 ClothingItem으로 복사합니다.
 // 같은 카탈로그라도 옷장별로 별도 id를 갖게 해 삭제/상태 변경을 독립적으로 처리합니다.
