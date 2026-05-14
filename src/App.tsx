@@ -2109,22 +2109,38 @@ function CatalogSelectionView(props: {
   selectedCatalogIds: string[];
   setSelectedCatalogIds: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
+  const [subcat, setSubcat] = useState('전체');
+  const prevCategory = React.useRef(props.catalogCategory);
+  if (prevCategory.current !== props.catalogCategory) {
+    prevCategory.current = props.catalogCategory;
+    setSubcat('전체');
+  }
+
+  const subcategories = props.catalogCategory === '전체' ? [] :
+    ['전체', ...Array.from(new Set(props.catalogItems.map((i) => i.subcategory))).sort()];
+  const displayItems = subcat === '전체' ? props.catalogItems : props.catalogItems.filter((i) => i.subcategory === subcat);
   const selected = new Set(props.selectedCatalogIds);
+
   return (
     <section className="wardrobe-page catalog-selection-page">
       <BackTitle title="나만의 옷장 만들기" description="관리자가 준비한 의류 DB에서 체크해서 내 옷장을 빠르게 구성해요." onBack={props.onBack} right={<button className="selection-count" type="button" onClick={() => selected.size > 0 && props.setView('preview')}>{selected.size}개 선택됨 <ArrowRight size={16} /></button>} />
       <div className="catalog-head"><h2><Shirt size={19} /> 내 옷 고르기</h2><p>이미 준비된 옷들 중에서 체크해서 나만의 옷장을 구성해 보세요.</p></div>
       <section className="catalog-browser-panel">
-        <div className="catalog-tabs band catalog-tabs-sticky">{CATALOG_TABS.slice(0, 4).map((tab) => <button key={tab} className={props.catalogCategory === tab ? 'active' : ''} onClick={() => props.setCatalogCategory(tab)}>{tab}</button>)}</div>
+        <div className="catalog-tabs band catalog-tabs-sticky">{CATALOG_TABS.map((tab) => <button key={tab} className={props.catalogCategory === tab ? 'active' : ''} onClick={() => props.setCatalogCategory(tab)}>{tab}</button>)}</div>
+        {subcategories.length > 1 && (
+          <div className="catalog-subtabs">
+            {subcategories.map((sc) => <button key={sc} type="button" className={subcat === sc ? 'active' : ''} onClick={() => setSubcat(sc)}>{sc}</button>)}
+          </div>
+        )}
         <div className="catalog-scroll-box">
           <div className="catalog-card-grid">
-            {props.catalogItems.map((item) => (
+            {displayItems.map((item) => (
               <button key={item.catalogItemId} className={selected.has(item.catalogItemId) ? 'catalog-pick-card selected' : 'catalog-pick-card'} type="button" onClick={() => props.setSelectedCatalogIds((prev) => prev.includes(item.catalogItemId) ? prev.filter((id) => id !== item.catalogItemId) : [...prev, item.catalogItemId])}>
                 <img src={item.imageUrl} alt={item.name} />
                 {selected.has(item.catalogItemId) && <span className="selected-check"><Check size={15} /></span>}
                 <span className="category-label">{item.category}</span>
-                <strong>{item.name}</strong>
-                <small>{item.color} · {item.seasonTag}</small>
+                <strong>{item.subcategory}</strong>
+                <small>{item.seasonTag}</small>
                 <span className="catalog-color-row"><Chip hex={item.representativeHex} /> {item.representativeHex}</span>
               </button>
             ))}
