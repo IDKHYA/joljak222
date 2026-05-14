@@ -2,7 +2,7 @@
  * constants.ts
  *
  * 퍼스널컬러 설문 도메인의 기준 질문 데이터를 정의합니다.
- * 사용자는 8개 문항에 답하고, 각 선택지는 temperature, lightness, clarity, contrast 축에 가중치를 더합니다.
+ * 사용자는 5개 문항에 답하고, 각 선택지는 temperature, lightness, clarity, contrast 축에 가중치를 더합니다.
  *
  * 이 파일의 질문 데이터는 Questionnaire.tsx에서 화면으로 렌더링되고,
  * 선택 결과는 설문 점수로 정규화된 뒤 geminiService.ts의 하이브리드 융합 로직에 전달됩니다.
@@ -77,70 +77,6 @@ export const QUESTIONS: Question[] = [
     ],
   },
   {
-    id: 'white_clothing',
-    kind: 'signal',
-    text: '흰색 옷 중 얼굴이 더 정돈되어 보이는 쪽은 무엇인가요?',
-    helperText: '실제 흰색의 차이를 눈으로 비교해 보세요. 아이보리, 순백, 소프트 화이트는 인상에 주는 느낌이 꽤 다릅니다.',
-    options: [
-      {
-        label: '크림/아이보리',
-        value: 'ivory',
-        weights: { temperature: 0.4, lightness: 0.1, clarity: -0.1 },
-        description: '따뜻하고 부드러운 흰색이 잘 받는 편입니다.',
-        swatches: ['#FFF5DE', '#F8ECD2', '#EEDFC2'],
-        swatchCaption: '아이보리 · 크림 · 버터 화이트',
-      },
-      {
-        label: '순백 화이트',
-        value: 'pure',
-        weights: { temperature: -0.4, lightness: 0.3, clarity: 0.1 },
-        description: '차갑고 또렷한 화이트가 잘 받는 편입니다.',
-        swatches: ['#FFFFFF', '#F6F9FF', '#EEF3FA'],
-        swatchCaption: '순백 · 퓨어 화이트 · 아이스 화이트',
-      },
-      {
-        label: '부드러운 오프화이트',
-        value: 'soft_white',
-        weights: { temperature: 0, lightness: 0.15, clarity: -0.15 },
-        description: '중성에 가까운 부드러운 흰색이 편한 편입니다.',
-        swatches: ['#F7F4EE', '#F1EFE8', '#E7E3D9'],
-        swatchCaption: '오프화이트 · 소프트 화이트 · 에크루',
-      },
-    ],
-  },
-  {
-    id: 'sun_reaction',
-    kind: 'signal',
-    text: '햇빛을 받았을 때 피부 반응은 어떤 편인가요?',
-    helperText: '잘 타는지, 붉게 달아오르는지의 차이는 온도 축 판단에 도움이 됩니다.',
-    options: [
-      {
-        label: '붉어지기보다 노르스름하게 타는 편',
-        value: 'tan',
-        weights: { temperature: 0.25, contrast: 0.1 },
-        description: '웜톤 쪽으로 기울 가능성이 있습니다.',
-        swatches: ['#D8A26D', '#C98A5A', '#B77243'],
-        swatchCaption: '허니 탠 · 브론즈 · 골든 브라운',
-      },
-      {
-        label: '쉽게 붉어지고 오래 남는 편',
-        value: 'burn',
-        weights: { temperature: -0.25, contrast: -0.1 },
-        description: '쿨톤 쪽으로 기울 가능성이 있습니다.',
-        swatches: ['#F1A3A8', '#E48187', '#D56A73'],
-        swatchCaption: '로지 핑크 · 로즈 · 플러시 레드',
-      },
-      {
-        label: '둘 다 비슷하거나 잘 모르겠어요',
-        value: 'neutral',
-        weights: { temperature: 0, contrast: 0 },
-        description: '중간 축으로 반영됩니다.',
-        swatches: ['#DAB6A4', '#D7C5B8', '#E4D8CE'],
-        swatchCaption: '중간 베이지 계열',
-      },
-    ],
-  },
-  {
     id: 'vibrant_colors',
     kind: 'signal',
     text: '선명하고 채도 높은 컬러를 입었을 때 인상은 어떤가요?',
@@ -169,38 +105,6 @@ export const QUESTIONS: Question[] = [
         description: '중간값으로 반영됩니다.',
         swatches: ['#FF8A8E', '#59CFE5', '#F1DC72', '#6FD38D'],
         swatchCaption: '중간 밝기의 선명한 컬러',
-      },
-    ],
-  },
-  {
-    id: 'muted_colors',
-    kind: 'signal',
-    text: '그레이 한 방울 섞인 뮤트 컬러를 입었을 때는 어떤가요?',
-    helperText: '아래처럼 살짝 탁하고 부드러운 색입니다. 쨍한 색보다 한 톤 눌린 느낌의 컬러를 떠올려 주세요.',
-    options: [
-      {
-        label: '차분하고 자연스럽게 잘 어울려요',
-        value: 'natural',
-        weights: { clarity: -0.7 },
-        description: '뮤트한 톤에서 안정감이 생기는 편입니다.',
-        swatches: ['#C9AFA7', '#A9B7B0', '#9FA8B8', '#B7A8B7'],
-        swatchCaption: '더스티 로즈 · 세이지 · 토프 블루 · 소프트 모브',
-      },
-      {
-        label: '얼굴이 칙칙하고 힘없어 보여요',
-        value: 'tired',
-        weights: { clarity: 0.7 },
-        description: '더 맑고 선명한 톤이 필요할 수 있습니다.',
-        swatches: ['#C9AFA7', '#A9B7B0', '#9FA8B8', '#B7A8B7'],
-        swatchCaption: '전형적인 뮤트 컬러 예시',
-      },
-      {
-        label: '둘 다 비슷해요',
-        value: 'neutral',
-        weights: { clarity: 0 },
-        description: '중간값으로 반영됩니다.',
-        swatches: ['#D7C6C1', '#C3CDC8', '#C6CED9', '#D2C6D2'],
-        swatchCaption: '옅은 뮤트 파스텔 계열',
       },
     ],
   },

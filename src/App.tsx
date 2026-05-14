@@ -958,9 +958,48 @@ function outfitUniqueKey(items: ScoredClothingItem[]) {
   return items.map(itemUniqueKey).sort().join('|');
 }
 
+// 코디 내 패턴 조합 페널티를 계산합니다. 그래픽+솔리드, 같은 패턴 중복은 감점됩니다.
+function calculatePatternPenalty(items: ScoredClothingItem[]): number {
+  const patterns = items.map((i) => i.patternType).filter((p) => p !== 'solid');
+  if (patterns.length <= 1) return 0;
+  if (patterns.includes('graphic') && patterns.length > 1) return 22;
+  if (patterns[0] === patterns[1]) return 14;
+  return 8;
+}
+
+// 상의·하의 색상의 Lab ΔE와 시즌 선호 대비감을 결합해 실제 조화 점수를 계산합니다.
+function calculateHarmonyScore(items: ScoredClothingItem[], result: FinalResult | null): number {
+  const top = items.find((i) => i.category === '상의');
+  const bottom = items.find((i) => i.category === '하의');
+  if (!top || !bottom) return 75;
+  const topLab = rgbToLab(hexToRgb(top.representativeHex));
+  const bottomLab = rgbToLab(hexToRgb(bottom.representativeHex));
+  const colorDist = deltaE(topLab, bottomLab);
+  const preferredContrast = result ? SEASON_PROFILES[result.seasonTop1Id].traits.contrast : 0;
+  let idealMin: number;
+  let idealMax: number;
+  if (preferredContrast > 0.5) { idealMin = 28; idealMax = 65; }
+  else if (preferredContrast < -0.2) { idealMin = 5; idealMax = 22; }
+  else { idealMin = 12; idealMax = 42; }
+  const inRange = colorDist >= idealMin && colorDist <= idealMax;
+  const neutralBonus = (top.isNeutral || bottom.isNeutral) ? 12 : 0;
+  const patternPenalty = calculatePatternPenalty(items);
+  return Math.min(100, Math.max(0, (inRange ? 82 : 55) + neutralBonus - patternPenalty));
+}
+
+// 동일 아이템이 결과 목록에 과도하게 반복되지 않도록 아이템당 최대 등장 횟수를 제한합니다.
+function diversifyRecommendations(outfits: OutfitRecommendation[], maxPerItem = 3): OutfitRecommendation[] {
+  const appearances = new Map<string, number>();
+  return outfits.filter((outfit) => {
+    if (outfit.items.some((item) => (appearances.get(item.id) ?? 0) >= maxPerItem)) return false;
+    outfit.items.forEach((item) => appearances.set(item.id, (appearances.get(item.id) ?? 0) + 1));
+    return true;
+  });
+}
+
 // 상의/하의/아우터/신발 후보를 조합해 코디 추천 리스트를 만듭니다.
-// 최종 점수는 퍼스널컬러 42%, 날씨 28%, 색상 조화 20%, 착용 안정성 10%로 계산합니다.
-function buildRecommendations(items: ScoredClothingItem[], band: RecommendationWeatherBand, mode: RecommendationMode): OutfitRecommendation[] {
+// 최종 점수는 퍼스널컬러 38%, 날씨 22%, 색상 조화 28%, 착용 안정성 12%로 계산합니다.
+function buildRecommendations(items: ScoredClothingItem[], band: RecommendationWeatherBand, mode: RecommendationMode, result: FinalResult | null): OutfitRecommendation[] {
   const available = dedupeRecommendationItems(items.filter((item) => item.availabilityStatus !== '추천제외' && item.availabilityStatus !== '세탁중'));
   const weatherFiltered = band === '상관없음' ? available : available.filter((item) => isWeatherEligible(item, band));
   const tops = weatherFiltered.filter((item) => item.category === '상의');
@@ -983,9 +1022,9 @@ function buildRecommendations(items: ScoredClothingItem[], band: RecommendationW
       seenOutfits.add(key);
       const personalScore = Math.round(outfitItems.reduce((sum, item) => sum + (item.personalFitScore ?? 55), 0) / outfitItems.length);
       const weatherScore = Math.round(outfitItems.reduce((sum, item) => sum + getWeatherScore(item, band), 0) / outfitItems.length);
-      const harmonyScore = top.representativeHex === bottom.representativeHex || top.isNeutral || bottom.isNeutral ? 84 : 72;
+      const harmonyScore = calculateHarmonyScore(outfitItems, result);
       const stabilityScore = outfitItems.every((item) => item.availabilityStatus === '보유중') ? 92 : 68;
-      const score = Math.round(personalScore * 0.42 + weatherScore * 0.28 + harmonyScore * 0.2 + stabilityScore * 0.1);
+      const score = Math.round(personalScore * 0.38 + weatherScore * 0.22 + harmonyScore * 0.28 + stabilityScore * 0.12);
       outfits.push({
         id: `${top.id}-${bottom.id}-${outer?.id ?? 'noouter'}-${shoe?.id ?? 'noshoe'}`,
         title: `${mode} 추천 코디`,
@@ -1004,7 +1043,7 @@ function buildRecommendations(items: ScoredClothingItem[], band: RecommendationW
     });
   });
 
-  return outfits.sort((a, b) => b.score - a.score).slice(0, 60);
+  return diversifyRecommendations(outfits.sort((a, b) => b.score - a.score).slice(0, 60));
 }
 
 // 앱의 최상위 상태 컨테이너입니다.
@@ -1178,7 +1217,7 @@ function App() {
   const filteredCatalog = catalogCategory === '전체' ? ACTIVE_CATALOG_ITEMS : ACTIVE_CATALOG_ITEMS.filter((item) => item.category === catalogCategory);
   const selectedCatalogItems = ACTIVE_CATALOG_ITEMS.filter((item) => selectedCatalogIds.includes(item.catalogItemId));
   const recommendItems = scoredItems.filter((item) => selectedRecommendWardrobes.has(item.wardrobeId));
-  const recommendations = useMemo(() => buildRecommendations(recommendItems, weatherBand, recommendMode), [recommendItems, weatherBand, recommendMode]);
+  const recommendations = useMemo(() => buildRecommendations(recommendItems, weatherBand, recommendMode, personalColorResult), [recommendItems, weatherBand, recommendMode, personalColorResult]);
   const wardrobeHealthScore = Math.round(scoredItems.reduce((sum, item) => sum + (item.personalFitScore ?? 100), 0) / Math.max(scoredItems.length, 1));
   const readyWardrobeCount = wardrobes.filter((wardrobe) => {
     const items = clothingItems.filter((item) => item.wardrobeId === wardrobe.id);

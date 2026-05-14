@@ -27,7 +27,7 @@ import {
 } from '@/src/types';
 import {
   clamp,
-  colorTemperatureIndex,
+  labTemperatureIndex,
   deltaE,
   hexToRgb,
   luminance,
@@ -109,12 +109,12 @@ function measureColorFeatures(extractedColors: ExtractedColors) {
   };
 
   // 온도는 피부를 가장 크게 보고, 입술/머리/눈을 보조 신호로 사용합니다.
-  // 한 부위 색이 조명에 흔들려도 전체 판단이 급격히 바뀌지 않도록 가중 평균을 사용합니다.
+  // Lab b* 축 기반으로 계산해 조명 변화에 덜 민감하고 지각적으로 더 정확합니다.
   const temperature = clamp(
-    colorTemperatureIndex(skin) * 0.45 +
-      colorTemperatureIndex(lips) * 0.25 +
-      colorTemperatureIndex(hair) * 0.15 +
-      colorTemperatureIndex(eyes) * 0.15,
+    labTemperatureIndex(skin) * 0.45 +
+      labTemperatureIndex(lips) * 0.25 +
+      labTemperatureIndex(hair) * 0.15 +
+      labTemperatureIndex(eyes) * 0.15,
     -1,
     1,
   );

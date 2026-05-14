@@ -132,3 +132,13 @@ export function luminance({ r, g, b }: RgbColor) {
 export function colorTemperatureIndex({ r, g, b }: RgbColor) {
   return clamp(((r - b) + (r - g) * 0.35) / 255, -1, 1);
 }
+
+// Lab b* 축(노랑↔파랑)을 기반으로 웜/쿨 방향을 -1~1 지수로 환산합니다.
+// b* 양수=노랑=웜, 음수=파랑=쿨이며, a* 보정으로 분홍 쿨 뉘앙스를 소폭 반영합니다.
+// RGB 채널 차이 방식보다 조명 변화에 덜 흔들리는 지각적 색공간을 사용한 버전입니다.
+export function labTemperatureIndex(color: RgbColor): number {
+  const lab = rgbToLab(color);
+  const bAxis = clamp(lab.b / 32, -1, 1);
+  const aCorrection = clamp(lab.a / 28, -1, 1) * -0.18;
+  return clamp(bAxis + aCorrection, -1, 1);
+}
