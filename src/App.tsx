@@ -47,7 +47,6 @@ import { deltaE, hexToRgb, rgbToLab } from './services/colorUtils';
 import { useWeather } from './hooks/useWeather';
 import { WeatherBand, WEATHER_BANDS } from './lib/weather';
 import { FinalResult, PhotoAnalysisResult, QuestionnaireScores, SeasonId } from './types';
-import { MUSINSA_CATALOG_SOURCES, MUSINSA_IMAGE_MODULES, MUSINSA_META_MODULES, MusinsaSourceId } from './data/musinsaCatalogData';
 
 type Page = 'home' | 'personal' | 'wardrobe' | 'recommend' | 'saved' | 'tryon' | 'settings';
 type AnalysisStep = 'photo' | 'questionnaire' | 'result';
@@ -159,6 +158,10 @@ interface BackgroundRemoveResult {
   model: string;
   version?: string;
   processedAt: string;
+  predictedSeason?: string;
+  seasonConfidence?: number;
+  seasonProbabilities?: Record<string, number>;
+  predictedMaterial?: string;
 }
 
 interface ScoredClothingItem extends ClothingItem {
@@ -416,26 +419,15 @@ function getAllowedWeatherKeywords(band: RecommendationWeatherBand) {
   return Array.from(new Set([...(WEATHER_RULES[band] ?? []), ...(lowerBand ? WEATHER_RULES[lowerBand] ?? [] : [])]));
 }
 
-// 날씨 키워드가 특정 의류 카테고리에 적용 가능한지 확인합니다.
-function keywordBelongsToCategory(keyword: string, category: ClothingCategory) {
-  if (keyword === '긴바지') return category === '하의';
-  return TYPES[category].some((type) => type.includes(keyword) || keyword.includes(type));
-}
-
-// 의류 타입 문자열이 날씨 키워드와 실제로 맞는지 판단합니다.
-function itemMatchesKeyword(item: ScoredClothingItem, keyword: string) {
-  if (keyword === '긴바지') return item.category === '하의' && !item.type.includes('반바지') && !item.type.includes('스커트');
-  return item.type.includes(keyword) || keyword.includes(item.type);
-}
-
-// 추천 후보가 현재 기온 구간에 적합한지 필터링합니다.
-// 하의/신발은 상의보다 계절 키워드가 적어서, 해당 카테고리 키워드가 없으면 기본 후보로 남깁니다.
-function isWeatherEligible(item: ScoredClothingItem, band: RecommendationWeatherBand) {
+// seasonTag 기반으로 현재 기온 구간에 맞지 않는 옷을 제외합니다.
+// 겨울 옷은 더운 날, 여름 옷은 추운 날 추천에서 하드 컷합니다.
+// 점수 조정은 getWeatherScore()가 담당하고, 이 함수는 명백히 맞지 않는 경우만 제외합니다.
+function isWeatherEligible(item: ScoredClothingItem, band: RecommendationWeatherBand): boolean {
   if (band === '상관없음') return true;
-  const allowedKeywords = getAllowedWeatherKeywords(band);
-  const categoryKeywords = allowedKeywords.filter((keyword) => keywordBelongsToCategory(keyword, item.category));
-  if (categoryKeywords.length === 0) return item.category === '하의' || item.category === '신발';
-  return categoryKeywords.some((keyword) => itemMatchesKeyword(item, keyword));
+  const bandIndex = WEATHER_BAND_ORDER.indexOf(band as WeatherBand);
+  if (item.seasonTag === '여름' && bandIndex <= 2) return false;
+  if (item.seasonTag === '겨울' && bandIndex >= 5) return false;
+  return true;
 }
 
 // 가상착용 캔버스에서 의류가 올라갈 레이어 슬롯을 결정합니다.
@@ -587,30 +579,9 @@ function catalog(id: string, name: string, category: ClothingCategory, subcatego
   return { catalogItemId: id, name, category, subcategory, imageUrl, color, size, brand, ...meta, sourceType: 'catalog' };
 }
 
-// 파일명 기반 상품명을 화면에 보여줄 수 있는 이름으로 정리합니다.
-function cleanMusinsaName(path: string) {
-  const rawName = decodeURIComponent(path.split('/').pop() ?? '무신사 추천 상품');
-  return rawName
-    .replace(/\.(jpg|jpeg|png|webp)$/i, '')
-    .replace(/^\d+[-_]/, '')
-    .replace(/[-_]+/g, ' ')
-    .trim();
-}
-
 // 이미지 경로에 잘못된 % 문자가 있어도 브라우저 URL 파싱이 깨지지 않게 보정합니다.
 function safeAssetUrl(url: string) {
   return url.replace(/%(?![0-9A-Fa-f]{2})/g, '%25');
-}
-
-// 이미지 파일과 분석 JSON을 같은 상품으로 묶기 위한 공통 키를 추출합니다.
-function catalogKey(path: string) {
-  const fileName = decodeURIComponent(path.split('/').pop() ?? '');
-  return fileName.match(/^(\d{3})/)?.[1] ?? fileName.replace(/\.(jpg|jpeg|png|webp|json)$/i, '');
-}
-
-// 카탈로그 그룹의 분석 JSON들을 상품 키 기준 Map으로 바꿔 빠르게 찾게 합니다.
-function metaByCatalogKey(groupId: MusinsaSourceId) {
-  return new Map(Object.entries(MUSINSA_META_MODULES[groupId]).map(([path, meta]) => [catalogKey(path), meta as ClothingAnalysisMeta]));
 }
 
 // 이미지 분석 결과의 part 정보를 사용해 카테고리를 보정합니다.
@@ -734,36 +705,6 @@ function catalogFromAnalysis(
   };
 }
 
-// 특정 카탈로그 이미지 그룹 전체를 CatalogItem 배열로 변환합니다.
-// 이미지 모듈과 JSON 메타 모듈을 catalogKey로 매칭하는 단계입니다.
-function musinsaCatalog(
-  groupId: MusinsaSourceId,
-  category: ClothingCategory,
-  subcategory: string,
-  color: string,
-  size: string,
-  brand: string,
-) {
-  const metaMap = metaByCatalogKey(groupId);
-  return Object.entries(MUSINSA_IMAGE_MODULES[groupId])
-    .sort(([left], [right]) => left.localeCompare(right, 'ko'))
-    .map(([path, imageUrl], index) => {
-      const meta = metaMap.get(catalogKey(path));
-      const metaCategory = categoryFromMeta(meta, category);
-      return catalogFromAnalysis(
-        `musinsa-${groupId}-${String(index + 1).padStart(3, '0')}`,
-        cleanMusinsaName(path),
-        metaCategory,
-        subcategory,
-        color,
-        size,
-        brand,
-        safeAssetUrl(imageUrl),
-        meta,
-      );
-    });
-}
-
 // 색상명과 의류 타입에서 추천 계산에 필요한 대표 HEX, 계절 태그, 패턴/재질/데님 워시를 파생합니다.
 function buildColorMeta(category: ClothingCategory, type: string, color: string, colors?: ClothingColorAnalysis[], sourceText = '') {
   const colorMeta = colorMetaForInput(color);
@@ -819,10 +760,9 @@ const INITIAL_CATALOG_ITEMS: CatalogItem[] = [
   catalog('catalog-14', '루즈핏 청자켓', '아우터', '재킷', '데님', 'M', 'Denim Standard', 'https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?auto=format&fit=crop&w=700&q=80'),
   catalog('catalog-15', '경량 필딩 자켓', '아우터', '재킷', '카키', 'L', 'Daily Layer', 'https://images.unsplash.com/photo-1548883354-94bcfe321cbb?auto=format&fit=crop&w=700&q=80'),
   catalog('catalog-16', '화이트 스니커즈', '신발', '스니커즈', '화이트', '270', 'Clean Step', 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=700&q=80'),
-  ...MUSINSA_CATALOG_SOURCES.flatMap((source) => musinsaCatalog(source.id, source.category as ClothingCategory, source.subcategory, source.fallbackColor, source.size, source.brand)),
 ];
 
-const ACTIVE_CATALOG_ITEMS = INITIAL_CATALOG_ITEMS.filter((item) => item.catalogItemId.startsWith('musinsa-'));
+const ACTIVE_CATALOG_ITEMS = INITIAL_CATALOG_ITEMS;
 
 // 카탈로그 상품을 사용자의 특정 옷장에 들어가는 실제 ClothingItem으로 복사합니다.
 // 같은 카탈로그라도 옷장별로 별도 id를 갖게 해 삭제/상태 변경을 독립적으로 처리합니다.
@@ -906,28 +846,30 @@ function normalizeClothingMeta(item: ClothingItem): ClothingItem {
 // 이미지 경로나 분석 메타가 바뀌어도 기존 사용자의 옷장 항목이 최신 기준을 따르게 합니다.
 function reconcileStoredClothing(items: ClothingItem[]) {
   const catalogMap = new Map(ACTIVE_CATALOG_ITEMS.map((item) => [item.catalogItemId, item]));
-  return items.filter((item) => item.sourceType !== 'catalog' || item.catalogItemId?.startsWith('musinsa-')).map((item) => {
-    if (!item.catalogItemId?.startsWith('musinsa-')) return normalizeClothingMeta(item);
-    const catalogItem = catalogMap.get(item.catalogItemId);
-    if (!catalogItem) return normalizeClothingMeta(item);
-    return normalizeClothingMeta({
-      ...item,
-      imageUrl: catalogItem.imageUrl,
-      category: catalogItem.category,
-      type: catalogItem.subcategory,
-      color: catalogItem.color,
-      brand: catalogItem.brand,
-      representativeColor: catalogItem.representativeColor,
-      representativeHex: catalogItem.representativeHex,
-      dominantColors: catalogItem.dominantColors,
-      seasonTag: catalogItem.seasonTag,
-      patternType: catalogItem.patternType,
-      material: catalogItem.material,
-      isNeutral: catalogItem.isNeutral,
-      isDenim: catalogItem.isDenim,
-      denimWash: catalogItem.denimWash,
+  return items
+    .filter((item) => item.sourceType !== 'catalog' || item.catalogItemId?.startsWith('catalog-'))
+    .map((item) => {
+      if (item.sourceType !== 'catalog') return normalizeClothingMeta(item);
+      const catalogItem = catalogMap.get(item.catalogItemId ?? '');
+      if (!catalogItem) return normalizeClothingMeta(item);
+      return normalizeClothingMeta({
+        ...item,
+        imageUrl: catalogItem.imageUrl,
+        category: catalogItem.category,
+        type: catalogItem.subcategory,
+        color: catalogItem.color,
+        brand: catalogItem.brand,
+        representativeColor: catalogItem.representativeColor,
+        representativeHex: catalogItem.representativeHex,
+        dominantColors: catalogItem.dominantColors,
+        seasonTag: catalogItem.seasonTag,
+        patternType: catalogItem.patternType,
+        material: catalogItem.material,
+        isNeutral: catalogItem.isNeutral,
+        isDenim: catalogItem.isDenim,
+        denimWash: catalogItem.denimWash,
+      });
     });
-  });
 }
 
 // 모바일 레이아웃/카메라 처리 분기를 위한 viewport 검사입니다.
@@ -1107,6 +1049,8 @@ function App() {
     brand: '',
     seasonTag: '사계절',
     availabilityStatus: '보유중' as AvailabilityStatus,
+    predictedSeasonTag: null as string | null,
+    predictedMaterial: null as string | null,
   });
   const [backgroundRemoveStatus, setBackgroundRemoveStatus] = useState<'idle' | 'processing' | 'done' | 'error'>('idle');
   const [backgroundRemoveError, setBackgroundRemoveError] = useState('');
@@ -1304,9 +1248,11 @@ function App() {
       representativeColor: meta.representativeColor,
       representativeHex: detectedColor?.hex ?? meta.representativeHex,
       dominantColors: meta.dominantColors,
-      seasonTag: manual.seasonTag,
+      seasonTag: (manual.predictedSeasonTag && manual.predictedSeasonTag !== '미분류')
+        ? manual.predictedSeasonTag
+        : manual.seasonTag,
       patternType: meta.patternType,
-      material: meta.material,
+      material: (manual.predictedMaterial as MaterialType | null) ?? meta.material,
       availabilityStatus: manual.availabilityStatus,
       isNeutral: meta.isNeutral,
       isDenim: meta.isDenim,
@@ -1535,6 +1481,8 @@ function App() {
           version: result.version ?? 'fashion-segformer-v1',
           processedAt: result.processedAt,
         },
+        predictedSeasonTag: result.predictedSeason ?? null,
+        predictedMaterial: result.predictedMaterial ?? null,
       }));
       setBackgroundRemoveStatus('done');
     } catch (error) {
