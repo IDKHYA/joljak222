@@ -1022,6 +1022,59 @@ function getHarmonyType(items: ScoredClothingItem[]): string {
   return classifyHarmonyType(hueAngleDiff(top.representativeHex, bottom.representativeHex));
 }
 
+// 색상 버킷 레이블 (hue 각도 기반 8구간 + 무채색)
+const HUE_BUCKET_KO: Record<string, string> = {
+  red: '빨강', orange: '주황', yellow: '노랑', green: '초록',
+  cyan: '청록', blue: '파랑', purple: '보라', pink: '분홍', neutral: '무채색',
+};
+
+// hex 색상을 hue 버킷으로 분류합니다. 채도 0.15 미만은 무채색으로 처리합니다.
+function getHueBucket(hex: string): string {
+  const hsl = rgbToHsl(hexToRgb(hex));
+  if (hsl.s < 0.15) return 'neutral';
+  const h = hsl.h * 360;
+  if (h < 20 || h >= 340) return 'red';
+  if (h < 45) return 'orange';
+  if (h < 75) return 'yellow';
+  if (h < 155) return 'green';
+  if (h < 195) return 'cyan';
+  if (h < 255) return 'blue';
+  if (h < 315) return 'purple';
+  return 'pink';
+}
+
+interface ColorGroup {
+  key: string;
+  topBucket: string;
+  bottomBucket: string;
+  topHex: string;
+  bottomHex: string;
+  outfits: OutfitRecommendation[];
+}
+
+// 추천 결과를 상의×하의 색상 버킷 조합으로 묶습니다.
+function groupByColorCombo(outfits: OutfitRecommendation[]): ColorGroup[] {
+  const map = new Map<string, ColorGroup>();
+  for (const outfit of outfits) {
+    const top = outfit.items.find((i) => i.category === '상의');
+    const bottom = outfit.items.find((i) => i.category === '하의');
+    const tb = top ? getHueBucket(top.representativeHex) : 'neutral';
+    const bb = bottom ? getHueBucket(bottom.representativeHex) : 'neutral';
+    const key = `${tb}×${bb}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        key, topBucket: tb, bottomBucket: bb,
+        topHex: top?.representativeHex ?? '#888',
+        bottomHex: bottom?.representativeHex ?? '#888',
+        outfits: [],
+      });
+    }
+    map.get(key)!.outfits.push(outfit);
+  }
+  // 그룹 내 최고 점수 기준 내림차순 정렬
+  return [...map.values()].sort((a, b) => b.outfits[0].score - a.outfits[0].score);
+}
+
 function scoreGrade(score: number): string {
   if (score >= 90) return 'S';
   if (score >= 80) return 'A';
@@ -2177,6 +2230,7 @@ function CatalogSelectionView(props: {
   setSelectedCatalogIds: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
   const [subcat, setSubcat] = useState('전체');
+  const [season, setSeason] = useState('전체');
   const prevCategory = React.useRef(props.catalogCategory);
   if (prevCategory.current !== props.catalogCategory) {
     prevCategory.current = props.catalogCategory;
@@ -2185,35 +2239,63 @@ function CatalogSelectionView(props: {
 
   const subcategories = props.catalogCategory === '전체' ? [] :
     ['전체', ...Array.from(new Set(props.catalogItems.map((i) => i.subcategory))).sort()];
-  const displayItems = subcat === '전체' ? props.catalogItems : props.catalogItems.filter((i) => i.subcategory === subcat);
+
+  const displayItems = props.catalogItems
+    .filter((i) => subcat === '전체' || i.subcategory === subcat)
+    .filter((i) => season === '전체' || i.seasonTag.includes(season));
+
   const selected = new Set(props.selectedCatalogIds);
+
+  const toggle = (id: string) =>
+    props.setSelectedCatalogIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
 
   return (
     <section className="wardrobe-page catalog-selection-page">
-      <BackTitle title="나만의 옷장 만들기" description="관리자가 준비한 의류 DB에서 체크해서 내 옷장을 빠르게 구성해요." onBack={props.onBack} right={<button className="selection-count" type="button" onClick={() => selected.size > 0 && props.setView('preview')}>{selected.size}개 선택됨 <ArrowRight size={16} /></button>} />
+      <BackTitle title="나만의 옷장 만들기" description="관리자가 준비한 의류 DB에서 체크해서 내 옷장을 빠르게 구성해요." onBack={props.onBack} />
       <div className="catalog-head"><h2><Shirt size={19} /> 내 옷 고르기</h2><p>이미 준비된 옷들 중에서 체크해서 나만의 옷장을 구성해 보세요.</p></div>
       <section className="catalog-browser-panel">
-        <div className="catalog-tabs band catalog-tabs-sticky">{CATALOG_TABS.map((tab) => <button key={tab} className={props.catalogCategory === tab ? 'active' : ''} onClick={() => props.setCatalogCategory(tab)}>{tab}</button>)}</div>
+        {/* 대분류 탭 */}
+        <div className="catalog-tabs band catalog-tabs-sticky">
+          {CATALOG_TABS.map((tab) => <button key={tab} className={props.catalogCategory === tab ? 'active' : ''} onClick={() => props.setCatalogCategory(tab)}>{tab}</button>)}
+        </div>
+        {/* 소분류 pills */}
         {subcategories.length > 1 && (
           <div className="catalog-subtabs">
             {subcategories.map((sc) => <button key={sc} type="button" className={subcat === sc ? 'active' : ''} onClick={() => setSubcat(sc)}>{sc}</button>)}
           </div>
         )}
-        <div className="catalog-scroll-box">
+        {/* 시즌 pill 필터 */}
+        <div className="catalog-subtabs">
+          {['전체', '봄', '여름', '가을', '겨울'].map((s) => (
+            <button key={s} type="button" className={season === s ? 'active' : ''} onClick={() => setSeason(s)}>{s}</button>
+          ))}
+        </div>
+        {/* 아이템 그리드 */}
+        <div className="catalog-scroll-box catalog-scroll-box--with-bar">
           <div className="catalog-card-grid">
             {displayItems.map((item) => (
-              <button key={item.catalogItemId} className={selected.has(item.catalogItemId) ? 'catalog-pick-card selected' : 'catalog-pick-card'} type="button" onClick={() => props.setSelectedCatalogIds((prev) => prev.includes(item.catalogItemId) ? prev.filter((id) => id !== item.catalogItemId) : [...prev, item.catalogItemId])}>
+              <button key={item.catalogItemId} className={selected.has(item.catalogItemId) ? 'catalog-pick-card selected' : 'catalog-pick-card'} type="button" onClick={() => toggle(item.catalogItemId)}>
                 <img src={item.imageUrl} alt={item.name} />
                 {selected.has(item.catalogItemId) && <span className="selected-check"><Check size={15} /></span>}
-                <span className="category-label">{item.category}</span>
-                <strong>{item.subcategory}</strong>
-                <small>{item.seasonTag}</small>
-                <span className="catalog-color-row"><Chip hex={item.representativeHex} /> {item.representativeHex}</span>
+                <span className="catalog-card-label">
+                  <strong>{item.subcategory}</strong>
+                  <small>{item.seasonTag}</small>
+                </span>
               </button>
             ))}
+            {displayItems.length === 0 && <p className="picker-empty">해당 조건의 아이템이 없습니다.</p>}
           </div>
         </div>
       </section>
+      {/* sticky 하단 선택 바 */}
+      <div className="catalog-action-bar">
+        <span className="picker-action-count">{selected.size > 0 ? `${selected.size}개 선택됨` : '옷을 선택하세요'}</span>
+        <button className="picker-action-confirm" disabled={selected.size === 0} onClick={() => props.setView('preview')}>
+          선택 완료
+        </button>
+      </div>
     </section>
   );
 }
@@ -2743,47 +2825,83 @@ function ColorTileGrid({ colors, compact }: { colors: string[]; compact?: boolea
   );
 }
 
-// 계산된 코디 추천 결과를 리스트로 보여주고 저장 액션을 제공합니다.
+// 단일 outfit 카드 렌더링 (RecommendationList 내부 재사용)
+function OutfitCard({ outfit, onSave }: { outfit: OutfitRecommendation; onSave: (outfit: OutfitRecommendation) => void }) {
+  return (
+    <article className="panel outfit-card" key={outfit.id}>
+      <div className="result-head">
+        <div>
+          <h3>{outfit.title}</h3>
+          <div className="outfit-meta-row">
+            <span className="harmony-badge">{HARMONY_BADGE_KO[outfit.harmonyType] ?? outfit.harmonyType}</span>
+            <span className="outfit-band-tag">{outfit.weatherBand}</span>
+          </div>
+        </div>
+        <div className="score-circle">
+          <strong>{outfit.score}</strong>
+          <span>점</span>
+        </div>
+      </div>
+      <div className="outfit-color-strip">
+        {outfit.items.map((item) => (
+          <span key={item.id} className="outfit-color-swatch" style={{ background: item.representativeHex }} title={item.type} />
+        ))}
+      </div>
+      <div className="recommend-item-strip">
+        {outfit.items.map((item) => (
+          <div key={item.id} className="outfit-item-thumb">
+            <img src={clothingDisplayImage(item)} alt={item.type} />
+            {item.fitGrade && <span className={`fit-badge fit-${item.fitGrade.toLowerCase()}`}>{item.fitGrade}</span>}
+            <span className="item-type-label">{item.type}</span>
+          </div>
+        ))}
+      </div>
+      <div className="score-grade-row">
+        <span title={`퍼스널컬러 적합도 ${outfit.personalScore}점`}>퍼컬 <strong className={`grade-${scoreGrade(outfit.personalScore)}`}>{scoreGrade(outfit.personalScore)}</strong></span>
+        <span title={`색상 조화도 ${outfit.harmonyScore}점`}>조화 <strong className={`grade-${scoreGrade(outfit.harmonyScore)}`}>{scoreGrade(outfit.harmonyScore)}</strong></span>
+        <span title={`날씨 적합도 ${outfit.weatherScore}점`}>날씨 <strong className={`grade-${scoreGrade(outfit.weatherScore)}`}>{scoreGrade(outfit.weatherScore)}</strong></span>
+      </div>
+      <button className="line-button" onClick={() => onSave(outfit)}>데일리룩 저장</button>
+    </article>
+  );
+}
+
+// 계산된 코디 추천 결과를 색상 조합 pill 필터 + 카드 그리드로 보여줍니다.
 function RecommendationList({ recommendations, onSave }: { recommendations: OutfitRecommendation[]; onSave: (outfit: OutfitRecommendation) => void }) {
+  const groups = useMemo(() => groupByColorCombo(recommendations), [recommendations]);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
+  const displayed = selectedKey
+    ? (groups.find((g) => g.key === selectedKey)?.outfits ?? [])
+    : recommendations;
+
   return (
     <section className="recommendation-scroll-box">
+      {/* 색상 조합 필터 pills */}
+      <div className="color-combo-tabs">
+        <button
+          className={`color-combo-pill${selectedKey === null ? ' active' : ''}`}
+          onClick={() => setSelectedKey(null)}
+        >
+          전체 <span className="pill-count">{recommendations.length}</span>
+        </button>
+        {groups.map((group) => (
+          <button
+            key={group.key}
+            className={`color-combo-pill${selectedKey === group.key ? ' active' : ''}`}
+            onClick={() => setSelectedKey(group.key)}
+          >
+            <span className="pill-swatch" style={{ background: group.topHex }} />
+            <span className="pill-swatch" style={{ background: group.bottomHex }} />
+            {HUE_BUCKET_KO[group.topBucket]} × {HUE_BUCKET_KO[group.bottomBucket]}
+            <span className="pill-count">{group.outfits.length}</span>
+          </button>
+        ))}
+      </div>
+      {/* outfit 카드 */}
       <div className="outfit-grid">
-        {recommendations.map((outfit) => (
-          <article className="panel outfit-card" key={outfit.id}>
-            <div className="result-head">
-              <div>
-                <h3>{outfit.title}</h3>
-                <div className="outfit-meta-row">
-                  <span className="harmony-badge">{HARMONY_BADGE_KO[outfit.harmonyType] ?? outfit.harmonyType}</span>
-                  <span className="outfit-band-tag">{outfit.weatherBand}</span>
-                </div>
-              </div>
-              <div className="score-circle">
-                <strong>{outfit.score}</strong>
-                <span>점</span>
-              </div>
-            </div>
-            <div className="outfit-color-strip">
-              {outfit.items.map((item) => (
-                <span key={item.id} className="outfit-color-swatch" style={{ background: item.representativeHex }} title={item.type} />
-              ))}
-            </div>
-            <div className="recommend-item-strip">
-              {outfit.items.map((item) => (
-                <div key={item.id} className="outfit-item-thumb">
-                  <img src={clothingDisplayImage(item)} alt={item.type} />
-                  {item.fitGrade && <span className={`fit-badge fit-${item.fitGrade.toLowerCase()}`}>{item.fitGrade}</span>}
-                  <span className="item-type-label">{item.type}</span>
-                </div>
-              ))}
-            </div>
-            <div className="score-grade-row">
-              <span title={`퍼스널컬러 적합도 ${outfit.personalScore}점`}>퍼컬 <strong className={`grade-${scoreGrade(outfit.personalScore)}`}>{scoreGrade(outfit.personalScore)}</strong></span>
-              <span title={`색상 조화도 ${outfit.harmonyScore}점`}>조화 <strong className={`grade-${scoreGrade(outfit.harmonyScore)}`}>{scoreGrade(outfit.harmonyScore)}</strong></span>
-              <span title={`날씨 적합도 ${outfit.weatherScore}점`}>날씨 <strong className={`grade-${scoreGrade(outfit.weatherScore)}`}>{scoreGrade(outfit.weatherScore)}</strong></span>
-            </div>
-            <button className="line-button" onClick={() => onSave(outfit)}>데일리룩 저장</button>
-          </article>
+        {displayed.map((outfit) => (
+          <OutfitCard key={outfit.id} outfit={outfit} onSave={onSave} />
         ))}
       </div>
     </section>
@@ -2879,6 +2997,8 @@ function TryOn({ saved, items, wardrobes, activeOutfitId, onSaveDailyLook, onEns
   const [pickerSource, setPickerSource] = useState<'wardrobe' | 'catalog'>('wardrobe');
   const [pickerWardrobeId, setPickerWardrobeId] = useState(wardrobes[0]?.id ?? '');
   const [pickerCategory, setPickerCategory] = useState<'전체' | ClothingCategory>('전체');
+  const [pickerSeason, setPickerSeason] = useState('전체');
+  const [pickerSelectedIds, setPickerSelectedIds] = useState<Set<string>>(new Set());
   const [cutoutStatus, setCutoutStatus] = useState<'idle' | 'processing' | 'done' | 'error'>('idle');
   const [cutoutError, setCutoutError] = useState('');
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -2930,7 +3050,9 @@ function TryOn({ saved, items, wardrobes, activeOutfitId, onSaveDailyLook, onEns
   const pickerBaseItems = pickerSource === 'catalog' ? catalogItems : wardrobeItems;
   const pickerItems = pickerBaseItems
     .filter((item) => !selectedItemIds.has(item.id))
-    .filter((item) => pickerCategory === '전체' || item.category === pickerCategory);
+    .filter((item) => pickerCategory === '전체' || item.category === pickerCategory)
+    .filter((item) => pickerSeason === '전체' || item.seasonTag.includes(pickerSeason))
+    .slice(0, pickerSource === 'catalog' ? 120 : undefined);
   const pickerWardrobeName = wardrobes.find((wardrobe) => wardrobe.id === pickerWardrobeId)?.name ?? '옷장';
 
   const updateLayer = (itemId: string, patch: Partial<DailyLookLayer>) => {
@@ -2982,6 +3104,23 @@ function TryOn({ saved, items, wardrobes, activeOutfitId, onSaveDailyLook, onEns
     setDraftItemIds(nextItemIds);
     setState((prev) => buildDailyLookState(nextItems, prev));
     setItemPickerOpen(false);
+  };
+
+  const batchAddDailyLookItems = () => {
+    const nextItemIds = Array.from(new Set([...draftItemIds, ...pickerSelectedIds]));
+    const nextItems = nextItemIds.map((id) => itemLookup.get(id)).filter(Boolean) as ScoredClothingItem[];
+    setDraftItemIds(nextItemIds);
+    setState((prev) => buildDailyLookState(nextItems, prev));
+    setPickerSelectedIds(new Set());
+    setItemPickerOpen(false);
+  };
+
+  const togglePickerItem = (itemId: string) => {
+    setPickerSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId); else next.add(itemId);
+      return next;
+    });
   };
 
   const resetLayout = () => {
@@ -3286,44 +3425,96 @@ function TryOn({ saved, items, wardrobes, activeOutfitId, onSaveDailyLook, onEns
         </div>
       </section>
       {itemPickerOpen && (
-        <div className="dailylook-picker-backdrop" role="presentation" onMouseDown={() => setItemPickerOpen(false)}>
+        <div className="dailylook-picker-backdrop" role="presentation" onMouseDown={() => { setItemPickerOpen(false); setPickerSelectedIds(new Set()); }}>
           <section className="dailylook-picker-modal panel" role="dialog" aria-modal="true" aria-label="데일리룩 옷 추가" onMouseDown={(event) => event.stopPropagation()}>
             <div className="dailylook-picker-head">
               <PanelTitle title="옷 추가" />
-              <button className="line-button" type="button" onClick={() => setItemPickerOpen(false)}>닫기</button>
+              <button className="line-button" type="button" onClick={() => { setItemPickerOpen(false); setPickerSelectedIds(new Set()); }}>닫기</button>
             </div>
             <div className="dailylook-picker-tabs">
-              <button className={pickerSource === 'wardrobe' ? 'active' : ''} type="button" onClick={() => setPickerSource('wardrobe')}>내 옷장</button>
-              <button className={pickerSource === 'catalog' ? 'active' : ''} type="button" onClick={() => setPickerSource('catalog')}>프로젝트 카탈로그</button>
+              <button className={pickerSource === 'wardrobe' ? 'active' : ''} type="button" onClick={() => { setPickerSource('wardrobe'); setPickerSelectedIds(new Set()); }}>내 옷장</button>
+              <button className={pickerSource === 'catalog' ? 'active' : ''} type="button" onClick={() => { setPickerSource('catalog'); setPickerSelectedIds(new Set()); }}>프로젝트 카탈로그</button>
             </div>
-            <div className="dailylook-picker-controls">
-              {pickerSource === 'wardrobe' && (
+
+            {/* 카테고리 pill 필터 */}
+            <div className="picker-filter-row">
+              {(['전체', ...CATEGORY_OPTIONS] as Array<'전체' | ClothingCategory>).map((cat) => (
+                <button key={cat} type="button" className={`picker-pill${pickerCategory === cat ? ' active' : ''}`} onClick={() => setPickerCategory(cat)}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* 시즌 pill 필터 — 카탈로그 전용 */}
+            {pickerSource === 'catalog' && (
+              <div className="picker-filter-row">
+                {['전체', '봄', '여름', '가을', '겨울'].map((season) => (
+                  <button key={season} type="button" className={`picker-pill${pickerSeason === season ? ' active' : ''}`} onClick={() => setPickerSeason(season)}>
+                    {season}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 옷장 선택 — wardrobe 전용 */}
+            {pickerSource === 'wardrobe' && (
+              <div className="dailylook-picker-controls">
                 <label>옷장
                   <select value={pickerWardrobeId} onChange={(event) => setPickerWardrobeId(event.target.value)}>
                     {wardrobes.map((wardrobe) => <option key={wardrobe.id} value={wardrobe.id}>{wardrobe.name}</option>)}
                   </select>
                 </label>
-              )}
-              <label>카테고리
-                <select value={pickerCategory} onChange={(event) => setPickerCategory(event.target.value as '전체' | ClothingCategory)}>
-                  {(['전체', ...CATEGORY_OPTIONS] as Array<'전체' | ClothingCategory>).map((category) => <option key={category} value={category}>{category}</option>)}
-                </select>
-              </label>
-            </div>
-            <p className="dailylook-picker-note">{pickerSource === 'wardrobe' ? pickerWardrobeName : '프로젝트 카탈로그'} · {pickerCategory} · {pickerItems.length}개</p>
-            <div className="dailylook-picker-grid">
-              {pickerItems.map((item) => (
-                <button key={item.id} type="button" onClick={() => addDailyLookItem(item.id)}>
-                  <img src={clothingDisplayImage(item)} alt={item.type} />
-                  <span>
-                    <strong>{item.type}</strong>
-                    <small>{item.brand} · {item.category}</small>
-                    <small>{item.representativeHex ?? item.color}</small>
-                  </span>
+              </div>
+            )}
+
+            <p className="dailylook-picker-note">
+              {pickerSource === 'wardrobe' ? pickerWardrobeName : '퍼컬 추천순'} · {pickerCategory} · {pickerItems.length}개
+            </p>
+
+            {/* 아이템 그리드 */}
+            {pickerSource === 'catalog' ? (
+              <div className="picker-catalog-grid">
+                {pickerItems.map((item) => {
+                  const isSelected = pickerSelectedIds.has(item.id);
+                  const score = item.personalFitScore ?? 0;
+                  return (
+                    <button key={item.id} type="button" className={`picker-catalog-item${isSelected ? ' selected' : ''}`} onClick={() => togglePickerItem(item.id)}>
+                      <div className="picker-catalog-img-wrap">
+                        <img src={clothingDisplayImage(item)} alt={item.type} />
+                        {isSelected && <span className="picker-check">✓</span>}
+                        {score >= 80 && <span className="picker-fit-dot" title={`퍼컬 ${score}점`} />}
+                      </div>
+                      <small>{item.type}</small>
+                    </button>
+                  );
+                })}
+                {pickerItems.length === 0 && <p className="picker-empty">해당 조건의 아이템이 없습니다.</p>}
+              </div>
+            ) : (
+              <div className="dailylook-picker-grid">
+                {pickerItems.map((item) => (
+                  <button key={item.id} type="button" onClick={() => addDailyLookItem(item.id)}>
+                    <img src={clothingDisplayImage(item)} alt={item.type} />
+                    <span>
+                      <strong>{item.type}</strong>
+                      <small>{item.brand} · {item.category}</small>
+                      <small>{item.representativeHex ?? item.color}</small>
+                    </span>
+                  </button>
+                ))}
+                {pickerItems.length === 0 && <EmptyState title="추가할 옷이 없습니다." description="다른 옷장이나 카테고리를 선택해 주세요." />}
+              </div>
+            )}
+
+            {/* 하단 sticky 바 — 카탈로그 전용 */}
+            {pickerSource === 'catalog' && (
+              <div className="picker-action-bar">
+                <span className="picker-action-count">{pickerSelectedIds.size > 0 ? `${pickerSelectedIds.size}개 선택됨` : '아이템을 선택하세요'}</span>
+                <button className="picker-action-confirm" disabled={pickerSelectedIds.size === 0} onClick={batchAddDailyLookItems}>
+                  추가하기
                 </button>
-              ))}
-              {pickerItems.length === 0 && <EmptyState title="추가할 옷이 없습니다." description="다른 옷장이나 카테고리를 선택해 주세요." />}
-            </div>
+              </div>
+            )}
           </section>
         </div>
       )}

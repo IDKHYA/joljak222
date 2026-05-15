@@ -873,6 +873,57 @@ select {
   color: #fff;
 }
 
+.color-combo-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 0 12px;
+}
+
+.color-combo-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1.5px solid #d8dee8;
+  border-radius: 999px;
+  background: #fff;
+  color: #374151;
+  padding: 4px 12px 4px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.color-combo-pill.active {
+  border-color: #374151;
+  background: #374151;
+  color: #fff;
+}
+
+.color-combo-pill.active .pill-count {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+}
+
+.pill-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.12);
+  flex-shrink: 0;
+}
+
+.pill-count {
+  background: #eef0f5;
+  color: #667085;
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 2px;
+}
+
 .catalog-scroll-box {
   max-height: calc(100vh - 340px);
   overflow-y: auto;
@@ -904,6 +955,44 @@ select {
 .catalog-pick-card small {
   display: block;
   margin: 7px 12px 0;
+}
+
+.catalog-card-label {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px 4px;
+  gap: 2px;
+}
+
+.catalog-card-label strong {
+  margin: 0;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.catalog-card-label small {
+  margin: 0;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.catalog-scroll-box--with-bar {
+  max-height: calc(100vh - 400px);
+}
+
+.catalog-action-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  gap: 12px;
+  z-index: 10;
 }
 
 .catalog-color-row {
@@ -2187,8 +2276,17 @@ label {
   font-size: 11px;
   font-weight: 700;
   color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
 }
 
+.outfit-item-thumb:hover .fit-badge { opacity: 1; }
+
+.fit-badge.fit-best { background: #7C3AED; }
+.fit-badge.fit-good { background: #2563EB; }
+.fit-badge.fit-ok   { background: #059669; }
+.fit-badge.fit-check { background: #D97706; }
 .fit-badge.fit-s { background: #7C3AED; }
 .fit-badge.fit-a { background: #2563EB; }
 .fit-badge.fit-b { background: #059669; }
@@ -2604,6 +2702,155 @@ label {
   margin: 0;
   color: #667085;
   font-size: 13px;
+}
+
+/* 카탈로그 전용 picker 스타일 */
+.picker-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.picker-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 13px;
+  border: 1.5px solid #d8dee8;
+  border-radius: 999px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+
+.picker-pill.active {
+  border-color: #374151;
+  background: #374151;
+  color: #fff;
+}
+
+.picker-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.picker-catalog-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: #f8f9fb;
+  padding: 6px;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+
+.picker-catalog-item.selected {
+  border-color: #374151;
+  background: #f0f1f3;
+}
+
+.picker-catalog-img-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.picker-catalog-img-wrap img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  object-fit: contain;
+  background: #fff;
+}
+
+.picker-check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #374151;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.picker-fit-dot {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #059669;
+}
+
+.picker-catalog-item small {
+  font-size: 11px;
+  color: #667085;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 14px;
+  padding: 32px 0;
+}
+
+.picker-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0 0;
+  border-top: 1px solid #e5e7eb;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.picker-action-count {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.picker-action-confirm {
+  padding: 10px 22px;
+  border: none;
+  border-radius: 10px;
+  background: #374151;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.picker-action-confirm:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+}
+
+.picker-action-confirm:not(:disabled):hover {
+  background: #1f2937;
 }
 
 .dailylook-picker-grid {
@@ -3325,11 +3572,34 @@ label {
     display: none;
   }
 
-  .recommend-item-strip {
-    gap: 6px;
+  .fit-badge {
+    display: none;
   }
 
-  .recommend-item-strip img {
+  .item-type-label {
+    display: none;
+  }
+
+  .recommend-item-strip {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .recommend-item-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .outfit-item-thumb {
+    flex: 0 0 64px;
+    gap: 0;
+  }
+
+  .outfit-item-thumb img {
+    width: 64px;
+    height: 64px;
     border-radius: 10px;
   }
 
@@ -3409,12 +3679,23 @@ label {
   }
 
   .wardrobe-card-grid,
-  .catalog-card-grid,
   .clothing-grid,
   .recommend-wardrobe-grid,
   .recommend-search-row,
   .outfit-grid {
     grid-template-columns: 1fr;
+  }
+
+  .catalog-card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .catalog-pick-card .category-label,
+  .catalog-pick-card > strong,
+  .catalog-pick-card > small,
+  .catalog-color-row {
+    display: none;
   }
 
   .wardrobe-card-grid {
