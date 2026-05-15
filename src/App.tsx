@@ -1512,6 +1512,7 @@ function App() {
     }
     setBackgroundRemoveStatus('processing');
     setBackgroundRemoveError('');
+    let success = false;
     try {
       const resized = await resizeImageFileForUpload(manual.imageFile);
       const result = await requestBackgroundRemoval(resized, manual.imageFile.name || 'clothing.jpg');
@@ -1531,10 +1532,11 @@ function App() {
           processedAt: result.processedAt,
         },
       }));
-      setBackgroundRemoveStatus('done');
+      success = true;
     } catch (error) {
-      setBackgroundRemoveStatus('error');
       setBackgroundRemoveError(error instanceof Error ? error.message : '누끼 처리에 실패했습니다.');
+    } finally {
+      setBackgroundRemoveStatus(success ? 'done' : 'error');
     }
   };
 
@@ -1546,6 +1548,7 @@ function App() {
     }
     setBackgroundRemoveStatus('processing');
     setBackgroundRemoveError('');
+    let success = false;
     try {
       const resized = await resizeImageFileForUpload(manual.imageFile);
       const targetPart = PRECISION_TARGET_BY_CATEGORY[manual.category];
@@ -1568,10 +1571,11 @@ function App() {
         predictedSeasonTag: result.predictedSeason ?? null,
         predictedMaterial: result.predictedMaterial ?? null,
       }));
-      setBackgroundRemoveStatus('done');
+      success = true;
     } catch (error) {
-      setBackgroundRemoveStatus('error');
       setBackgroundRemoveError(error instanceof Error ? error.message : '정밀 누끼 처리에 실패했습니다.');
+    } finally {
+      setBackgroundRemoveStatus(success ? 'done' : 'error');
     }
   };
 
@@ -2630,7 +2634,7 @@ function PersonalColorHistoryPanel({ history, current, onApply }: { history: Per
                     <strong>{SEASON_LABELS[result.seasonTop1Id]}</strong>
                     <em>2순위 {SEASON_LABELS[result.seasonTop2Id]}</em>
                   </span>
-                  <span className="mini-palette">{result.palette.slice(0, 5).map((hex) => <Chip key={hex} hex={hex} />)}</span>
+                  <span className="mini-palette">{result.palette.slice(0, 5).map((hex, idx) => <Chip key={`${hex}-${idx}`} hex={hex} />)}</span>
                 </button>
                 <div className="history-actions">
                   <button className="line-button" type="button" onClick={() => setSelectedRecord(record)}>자세히 보기</button>
@@ -2704,7 +2708,7 @@ function MetricBox({ title, value, detail }: { title: string; value: string; det
 function ColorTileGrid({ colors, compact }: { colors: string[]; compact?: boolean }) {
   return (
     <div className={compact ? 'color-tile-grid compact' : 'color-tile-grid'}>
-      {colors.map((hex) => <span key={hex}><i style={{ backgroundColor: hex }} /><small>{hex}</small></span>)}
+      {colors.map((hex, idx) => <span key={`${hex}-${idx}`}><i style={{ backgroundColor: hex }} /><small>{hex}</small></span>)}
     </div>
   );
 }
