@@ -26,9 +26,6 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 
-from season_predictor import predict as predict_season
-
-
 MODEL_NAME = "u2netp"
 MAX_IMAGE_SIDE = 1600
 CUTOUT_VERSION = "hard-alpha-v3"
@@ -330,7 +327,12 @@ async def extract_clothing(file: UploadFile = File(...), targetPart: str = Form(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"정밀 누끼에 실패했습니다: {exc}") from exc
 
-    prediction = predict_season(pred, mask, image, targetPart)
+    try:
+        from season_predictor import predict as predict_season
+        prediction = predict_season(pred, mask, image, targetPart)
+    except ModuleNotFoundError:
+        prediction = {}
+
 
     return {
         "imageDataUrl": png_data_url(result),
