@@ -1,4 +1,4 @@
-/*
+﻿/*
  * App.tsx
  *
  * 이 파일은 통합 퍼스널컬러 AI 옷장 앱의 최상위 애플리케이션 계층입니다.
@@ -42,7 +42,7 @@ import PhotoAnalyzer from './components/PhotoAnalyzer';
 import Questionnaire from './components/Questionnaire';
 import { SEASON_PROFILES } from './personalColorWorkbook';
 import { FAMILY_GUIDES, FAMILY_LABELS, PERSONAL_COLOR_MODEL_NOTE, SEASON_DETAILS } from './seasonContent';
-import { fuseResults } from './services/geminiService';
+import { fuseResults } from './services/personalColorEngine';
 import { TRAINING_CATALOG_ITEMS } from './data/trainingCatalog';
 import type { CatalogItem } from './data/trainingCatalog';
 import { deltaE2000, hexToRgb, rgbToHsl, rgbToLab } from './services/colorUtils';
@@ -145,6 +145,8 @@ interface BackgroundRemoveResult {
   seasonConfidence?: number;
   seasonProbabilities?: Record<string, number>;
   predictedMaterial?: string;
+  detectedCategory?: string;
+  fineLabels?: string[];
 }
 
 interface ScoredClothingItem extends ClothingItem {
@@ -353,6 +355,22 @@ const COLOR_META: Record<string, { representative: string; hex: string; neutral?
   카키: { representative: '카키', hex: '#737A57' },
   퍼플: { representative: '퍼플', hex: '#8B79C9' },
   라벤더: { representative: '라벤더', hex: '#B8A8D4' },
+};
+
+// SegFormer fine label(영문)을 앱 내부 의류 종류(한국어)로 변환합니다.
+const FINE_LABEL_TO_TYPE: Record<string, string> = {
+  'shirt, blouse': '셔츠',
+  'top, t-shirt, sweatshirt': '반팔티',
+  'sweater': '니트',
+  'cardigan': '가디건',
+  'jacket': '재킷',
+  'vest': '조끼',
+  'pants': '슬랙스',
+  'shorts': '반바지',
+  'skirt': '스커트',
+  'coat': '코트',
+  'dress': '원피스',
+  'jumpsuit': '점프수트',
 };
 
 const COLOR_NAME_PATTERNS: Array<[RegExp, keyof typeof COLOR_META]> = [
@@ -1218,6 +1236,8 @@ function App() {
     availabilityStatus: '보유중' as AvailabilityStatus,
     predictedSeasonTag: null as string | null,
     predictedMaterial: null as string | null,
+    aiAnalyzed: false,
+    aiConfidence: null as number | null,
   });
   const [backgroundRemoveStatus, setBackgroundRemoveStatus] = useState<'idle' | 'processing' | 'done' | 'error'>('idle');
   const [backgroundRemoveError, setBackgroundRemoveError] = useState('');
@@ -1582,9 +1602,64 @@ function App() {
     const file = event.target.files?.[0];
     if (!file) return;
     const objectUrl = URL.createObjectURL(file);
-    setManual((prev) => ({ ...prev, imageUrl: objectUrl, originalImageUrl: objectUrl, cutoutImageUrl: '', imageFile: file, segmentation: null }));
+    setManual((prev) => ({ ...prev, imageUrl: objectUrl, originalImageUrl: objectUrl, cutoutImageUrl: '', imageFile: file, segmentation: null, aiAnalyzed: false, aiConfidence: null }));
     setBackgroundRemoveStatus('idle');
     setBackgroundRemoveError('');
+    autoAnalyzeOnUpload(file);
+  };
+
+  // 사진 업로드 직후 자동 호출해 카테고리/계절/재질/색상을 AI로 감지하고 폼을 채웁니다.
+  const autoAnalyzeOnUpload = async (file: File) => {
+    setBackgroundRemoveStatus('processing');
+    setBackgroundRemoveError('');
+    let success = false;
+    try {
+      const resized = await resizeImageFileForUpload(file);
+      // upper_lower로 전체 의류를 추출하고 서버에서 자동으로 카테고리를 감지합니다.
+      const result = await requestPrecisionExtraction(resized, 'upper_lower', file.name || 'clothing.jpg');
+      const detectedColor = dominantColorFromAnalysis(result.colors);
+
+      // 서버 응답의 detectedCategory를 앱 내부 ClothingCategory로 변환합니다.
+      const categoryMap: Record<string, ClothingCategory> = { upper: '상의', lower: '하의', outer: '아우터' };
+      const detectedCat: ClothingCategory = (result.detectedCategory && categoryMap[result.detectedCategory]) || '상의';
+
+      // fine_labels에서 가장 먼저 매핑되는 한국어 종류를 가져옵니다.
+      const firstMatchedType = result.fineLabels
+        ?.map((label) => FINE_LABEL_TO_TYPE[label])
+        .find((t) => t && TYPES[detectedCat].includes(t));
+
+      // 예측 계절을 seasonTag에 반영합니다. '미분류'는 '사계절'로 처리합니다.
+      const seasonTagFromAI =
+        result.predictedSeason && result.predictedSeason !== '미분류' ? result.predictedSeason : '사계절';
+
+      setManual((prev) => ({
+        ...prev,
+        imageUrl: result.imageDataUrl,
+        cutoutImageUrl: result.imageDataUrl,
+        color: detectedColor?.hex ?? prev.color,
+        category: detectedCat,
+        type: firstMatchedType ?? TYPES[detectedCat][0],
+        seasonTag: seasonTagFromAI,
+        segmentation: {
+          width: result.width,
+          height: result.height,
+          bbox: result.bbox,
+          colors: result.colors ?? [],
+          model: result.model,
+          version: result.version ?? 'fashion-segformer-v1',
+          processedAt: result.processedAt,
+        },
+        predictedSeasonTag: result.predictedSeason ?? null,
+        predictedMaterial: result.predictedMaterial ?? null,
+        aiAnalyzed: true,
+        aiConfidence: result.seasonConfidence ?? null,
+      }));
+      success = true;
+    } catch (error) {
+      setBackgroundRemoveError(error instanceof Error ? error.message : 'AI 분석에 실패했습니다. 직접 입력하거나 누끼 따기를 사용하세요.');
+    } finally {
+      setBackgroundRemoveStatus(success ? 'done' : 'error');
+    }
   };
 
   const removeManualBackground = async () => {
@@ -2387,8 +2462,26 @@ function ManualAdd(props: {
             <button className="line-button" onClick={props.onPrecisionExtract} disabled={!props.manual.imageFile || props.backgroundRemoveStatus === 'processing'} type="button">{props.backgroundRemoveStatus === 'processing' ? '처리 중' : '정밀 누끼'}</button>
             <button className="line-button" onClick={() => props.setManual((prev: any) => ({ ...prev, imageUrl: 'https://images.unsplash.com/photo-1648483098902-7af8f711498f?auto=format&fit=crop&w=700&q=80', originalImageUrl: '', cutoutImageUrl: '', imageFile: null, segmentation: null }))} type="button">샘플 사용</button>
           </div>
-          {props.backgroundRemoveStatus === 'done' && <p className="manual-helper success">누끼 PNG가 적용되었습니다.</p>}
+          {props.backgroundRemoveStatus === 'processing' && <p className="manual-helper">AI가 사진을 분석하고 있습니다...</p>}
           {props.backgroundRemoveStatus === 'error' && <p className="manual-helper error">{props.backgroundRemoveError}</p>}
+          {props.manual.aiAnalyzed && (
+            <div className="ai-analysis-badge">
+              <span className="ai-badge-header">AI 자동 분석 완료</span>
+              <div className="ai-badge-pills">
+                <span>{props.manual.category}</span>
+                {props.manual.predictedSeasonTag && props.manual.predictedSeasonTag !== '미분류' && (
+                  <span>{props.manual.predictedSeasonTag}</span>
+                )}
+                {props.manual.predictedMaterial && (
+                  <span>{MATERIAL_LABELS[props.manual.predictedMaterial as MaterialType] ?? props.manual.predictedMaterial}</span>
+                )}
+                {props.manual.aiConfidence !== null && (
+                  <span className="ai-confidence">신뢰도 {Math.round((props.manual.aiConfidence as number) * 100)}%</span>
+                )}
+              </div>
+              <p className="ai-badge-note">아래 폼을 확인하고 필요하면 수정 후 저장하세요.</p>
+            </div>
+          )}
           <div className="structured-meta-panel">
             <span>재질 <strong>{MATERIAL_LABELS[structuredMeta.material]}</strong></span>
             <span>패턴 <strong>{PATTERN_LABELS[structuredMeta.patternType]}</strong></span>

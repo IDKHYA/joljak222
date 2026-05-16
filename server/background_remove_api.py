@@ -327,12 +327,36 @@ async def extract_clothing(file: UploadFile = File(...), targetPart: str = Form(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"정밀 누끼에 실패했습니다: {exc}") from exc
 
+    # 픽셀 수 기준으로 주요 의류 그룹(상의/하의/아우터)을 자동 감지합니다.
+    _UPPER_IDS = {1, 2, 3, 6}
+    _LOWER_IDS = {7, 8, 9}
+    _OUTER_IDS = {4, 5, 10, 13}
+    upper_px = int(np.isin(pred, list(_UPPER_IDS)).sum())
+    lower_px = int(np.isin(pred, list(_LOWER_IDS)).sum())
+    outer_px = int(np.isin(pred, list(_OUTER_IDS)).sum())
+    _category_scores = {"upper": upper_px, "lower": lower_px, "outer": outer_px}
+    detected_category = max(_category_scores, key=_category_scores.get) if any(v > 0 for v in _category_scores.values()) else None
+
+    # 실제로 감지된 의류 종류 레이블(fine_labels)을 수집합니다.
+    _FINE_LABEL_MAP = {
+        1: "shirt, blouse", 2: "top, t-shirt, sweatshirt", 3: "sweater",
+        4: "cardigan", 5: "jacket", 6: "vest", 7: "pants", 8: "shorts",
+        9: "skirt", 10: "coat", 11: "dress", 12: "jumpsuit",
+    }
+    fine_labels = [
+        _FINE_LABEL_MAP[int(lid)]
+        for lid in np.unique(pred)
+        if int(lid) in _FINE_LABEL_MAP and int(np.isin(pred, [int(lid)]).sum()) > 200
+    ]
+
+    # upper_lower 요청 시 자동 감지 카테고리로 계절 예측 정확도를 높입니다.
+    predict_part = detected_category if (targetPart == "upper_lower" and detected_category) else targetPart
+
     try:
         from season_predictor import predict as predict_season
-        prediction = predict_season(pred, mask, image, targetPart)
+        prediction = predict_season(pred, mask, image, predict_part)
     except ModuleNotFoundError:
         prediction = {}
-
 
     return {
         "imageDataUrl": png_data_url(result),
@@ -343,6 +367,8 @@ async def extract_clothing(file: UploadFile = File(...), targetPart: str = Form(
         "model": FASHION_MODEL_NAME,
         "version": PRECISION_CUTOUT_VERSION,
         "targetPart": targetPart,
+        "detectedCategory": detected_category,
+        "fineLabels": fine_labels,
         "predictedSeason": prediction.get("predictedSeason"),
         "seasonConfidence": prediction.get("seasonConfidence"),
         "seasonProbabilities": prediction.get("seasonProbabilities"),

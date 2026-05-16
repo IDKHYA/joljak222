@@ -1201,6 +1201,50 @@ label {
   color: #b42318;
 }
 
+/* AI 자동 분석 결과 배지 */
+.ai-analysis-badge {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+}
+
+.ai-badge-header {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1d4ed8;
+  margin-bottom: 6px;
+  letter-spacing: 0.01em;
+}
+
+.ai-badge-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ai-badge-pills span {
+  padding: 3px 10px;
+  background: #dbeafe;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e40af;
+}
+
+.ai-badge-pills .ai-confidence {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.ai-badge-note {
+  margin-top: 7px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
 .structured-meta-panel {
   display: flex;
   flex-wrap: wrap;
