@@ -2460,7 +2460,6 @@ function ManualAdd(props: {
             <button className="line-button" onClick={() => props.cameraInputRef.current?.click()} type="button">사진 찍기</button>
             <button className="line-button" onClick={props.onRemoveBackground} disabled={!props.manual.imageFile || props.backgroundRemoveStatus === 'processing'} type="button">{props.backgroundRemoveStatus === 'processing' ? '누끼 처리 중' : '누끼 따기'}</button>
             <button className="line-button" onClick={props.onPrecisionExtract} disabled={!props.manual.imageFile || props.backgroundRemoveStatus === 'processing'} type="button">{props.backgroundRemoveStatus === 'processing' ? '처리 중' : '정밀 누끼'}</button>
-            <button className="line-button" onClick={() => props.setManual((prev: any) => ({ ...prev, imageUrl: 'https://images.unsplash.com/photo-1648483098902-7af8f711498f?auto=format&fit=crop&w=700&q=80', originalImageUrl: '', cutoutImageUrl: '', imageFile: null, segmentation: null }))} type="button">샘플 사용</button>
           </div>
           {props.backgroundRemoveStatus === 'processing' && <p className="manual-helper">AI가 사진을 분석하고 있습니다...</p>}
           {props.backgroundRemoveStatus === 'error' && <p className="manual-helper error">{props.backgroundRemoveError}</p>}
@@ -2511,7 +2510,7 @@ function ManualAdd(props: {
         </div>
         <div className="form-grid manual-form">
           <fieldset className="category-picker">
-            <legend>카테고리</legend>
+            <legend>카테고리{props.manual.aiAnalyzed && <span className="ai-auto-tag">AI 자동 선택</span>}</legend>
             <div>
               {CATEGORY_OPTIONS.map((category) => {
                 const meta = CATEGORY_UI_META[category];
