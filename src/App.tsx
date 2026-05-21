@@ -40,397 +40,73 @@ import {
 } from 'lucide-react';
 import PhotoAnalyzer from './components/PhotoAnalyzer';
 import Questionnaire from './components/Questionnaire';
-import { SEASON_PROFILES } from './personalColorWorkbook';
 import { FAMILY_GUIDES, FAMILY_LABELS, PERSONAL_COLOR_MODEL_NOTE, SEASON_DETAILS } from './seasonContent';
 import { fuseResults } from './services/personalColorEngine';
 import { TRAINING_CATALOG_ITEMS } from './data/trainingCatalog';
 import type { CatalogItem } from './data/trainingCatalog';
-import { deltaE2000, hexToRgb, rgbToHsl, rgbToLab } from './services/colorUtils';
-import type { LabColor } from './services/colorUtils';
+import { hexToRgb } from './services/colorUtils';
 import { useWeather } from './hooks/useWeather';
-import { WeatherBand, WEATHER_BANDS } from './lib/weather';
-import { FinalResult, PhotoAnalysisResult, QuestionnaireScores, SeasonId } from './types';
+import { WEATHER_BANDS } from './lib/weather';
+import { FinalResult, PhotoAnalysisResult, QuestionnaireScores } from './types';
+import type {
+  AnalysisStep,
+  AppRouteState,
+  AvailabilityStatus,
+  BackgroundRemoveResult,
+  ClothingAnalysisMeta,
+  ClothingCategory,
+  ClothingColorAnalysis,
+  ClothingItem,
+  ClothingSegmentationMeta,
+  DailyLookLayer,
+  DailyLookSlot,
+  DailyLookState,
+  DailyLookTextLayer,
+  DenimWash,
+  MaterialType,
+  OutfitRecommendation,
+  Page,
+  PatternType,
+  PersonalColorRecord,
+  RecommendationMode,
+  RecommendationWeatherBand,
+  SavedOutfit,
+  ScoredClothingItem,
+  Wardrobe,
+  WardrobeView,
+} from './wardrobeTypes';
+import {
+  AVAILABILITY_OPTIONS,
+  CATALOG_TABS,
+  CATEGORY_OPTIONS,
+  CATEGORY_UI_META,
+  COLOR_META,
+  COLOR_NAME_PATTERNS,
+  CUTOUT_VERSION,
+  DAILY_LOOK_CANVAS,
+  DAILY_LOOK_SLOT_BY_CATEGORY,
+  DAILY_LOOK_SLOT_PRESETS,
+  DENIM_WASH_LABELS,
+  FINE_LABEL_TO_TYPE,
+  MATERIAL_LABELS,
+  PATTERN_LABELS,
+  PRECISION_TARGET_BY_CATEGORY,
+  RECOMMENDATION_MODES,
+  SEASON_LABELS,
+  SEASON_TAGS,
+  SIZES,
+  STORAGE_KEYS,
+  TYPES,
+} from './wardrobeConstants';
+import {
+  buildRecommendations,
+  groupByColorCombo,
+  HARMONY_BADGE_KO,
+  HUE_BUCKET_KO,
+  scoreGrade,
+  scoreItemForPersonalColor,
+} from './services/recommendationEngine';
 
-type Page = 'home' | 'personal' | 'wardrobe' | 'recommend' | 'saved' | 'tryon' | 'settings';
-type AnalysisStep = 'photo' | 'questionnaire' | 'result';
-type WardrobeView = 'list' | 'detail' | 'catalog' | 'preview' | 'manual';
-type RecommendationWeatherBand = WeatherBand | '상관없음';
-interface AppRouteState {
-  page: Page;
-  analysisStep: AnalysisStep;
-  wardrobeView: WardrobeView;
-  selectedWardrobeId: string;
-}
-type ClothingCategory = '상의' | '하의' | '아우터' | '신발' | '액세서리';
-type DailyLookSlot = 'outer' | 'upper' | 'lower' | 'shoes' | 'hat' | 'bag' | 'accessory';
-type AvailabilityStatus = '보유중' | '세탁중' | '보관중' | '추천제외';
-type FitGrade = 'BEST' | 'GOOD' | 'OK' | 'CHECK';
-type RecommendationMode = '데일리' | '출근' | '데이트' | '발표';
-type PatternType = 'solid' | 'stripe' | 'plaid' | 'graphic';
-type MaterialType = 'cotton' | 'denim' | 'knit' | 'leather' | 'nylon' | 'wool' | 'unknown';
-type DenimWash = 'light' | 'mid' | 'dark' | 'black';
-
-interface Wardrobe {
-  id: string;
-  name: string;
-  createdAt: string;
-}
-
-
-interface ClothingAnalysisMeta {
-  part?: string;
-  part_ko?: string;
-  fine_labels?: string[];
-  colors?: ClothingColorAnalysis[];
-}
-
-interface ClothingColorAnalysis {
-  hex?: string;
-  ratio?: number;
-  rgb?: number[];
-}
-
-interface ClothingItem {
-  id: string;
-  wardrobeId: string;
-  imageUrl: string;
-  originalImageUrl?: string;
-  cutoutImageUrl?: string;
-  segmentation?: ClothingSegmentationMeta;
-  category: ClothingCategory;
-  type: string;
-  color: string;
-  size: string;
-  brand: string;
-  createdAt: string;
-  representativeColor: string;
-  representativeHex: string;
-  dominantColors: ClothingColorAnalysis[];
-  seasonTag: string;
-  patternType: PatternType;
-  material: MaterialType;
-  availabilityStatus: AvailabilityStatus;
-  isNeutral: boolean;
-  isDenim: boolean;
-  denimWash?: DenimWash;
-  sourceType: 'catalog' | 'upload';
-  catalogItemId?: string;
-}
-
-interface ClothingSegmentationMeta {
-  width: number;
-  height: number;
-  bbox: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null;
-  model: string;
-  version?: string;
-  processedAt: string;
-  colors?: ClothingColorAnalysis[];
-}
-
-interface BackgroundRemoveResult {
-  imageDataUrl: string;
-  width: number;
-  height: number;
-  bbox: ClothingSegmentationMeta['bbox'];
-  colors?: ClothingColorAnalysis[];
-  model: string;
-  version?: string;
-  processedAt: string;
-  predictedSeason?: string;
-  seasonConfidence?: number;
-  seasonProbabilities?: Record<string, number>;
-  predictedMaterial?: string;
-  detectedCategory?: string;
-  fineLabels?: string[];
-}
-
-interface ScoredClothingItem extends ClothingItem {
-  personalFitScore: number | null;
-  fitGrade: FitGrade | null;
-  fitReason: string;
-  avoidRisk: boolean;
-}
-
-interface OutfitRecommendation {
-  id: string;
-  title: string;
-  harmonyType: string;
-  score: number;
-  personalScore: number;
-  harmonyScore: number;
-  weatherScore: number;
-  stabilityScore: number;
-  items: ScoredClothingItem[];
-  reason: string;
-  weatherBand: RecommendationWeatherBand;
-  mode: RecommendationMode;
-}
-
-interface SavedOutfit {
-  id: string;
-  title: string;
-  score: number;
-  itemIds: string[];
-  colorHexes: string[];
-  weatherBand: RecommendationWeatherBand;
-  mode: RecommendationMode;
-  savedAt: string;
-  dailyLookState?: DailyLookState;
-}
-
-interface DailyLookLayer {
-  itemId: string;
-  category: ClothingCategory;
-  slot: DailyLookSlot;
-  x: number;
-  y: number;
-  scale: number;
-  rotation: number;
-  zIndex: number;
-  visible: boolean;
-}
-
-interface DailyLookTextLayer {
-  id: string;
-  text: string;
-  x: number;
-  y: number;
-  fontSize: number;
-  color: string;
-  rotation: number;
-  zIndex: number;
-  visible: boolean;
-}
-
-interface DailyLookState {
-  canvas: {
-    width: number;
-    height: number;
-  };
-  layers: DailyLookLayer[];
-  textLayers?: DailyLookTextLayer[];
-  isConfirmed: boolean;
-  confirmedImage?: string;
-  confirmedAt?: string;
-}
-
-interface PersonalColorRecord {
-  id: string;
-  measuredAt: string;
-  result: FinalResult;
-}
-
-const STORAGE_KEYS = {
-  personalColor: 'integrated_personal_color_result',
-  personalHistory: 'integrated_personal_color_history',
-  wardrobes: 'integrated_wardrobes',
-  clothing: 'integrated_clothing_items',
-  saved: 'integrated_saved_outfits',
-} as const;
-
-const CATEGORY_OPTIONS: ClothingCategory[] = ['상의', '하의', '아우터', '신발', '액세서리'];
-const CATALOG_TABS: Array<'전체' | ClothingCategory> = ['전체', '아우터', '상의', '하의', '신발', '액세서리'];
-const RECOMMENDATION_MODES: RecommendationMode[] = ['데일리', '출근', '데이트', '발표'];
-const AVAILABILITY_OPTIONS: AvailabilityStatus[] = ['보유중', '세탁중', '보관중', '추천제외'];
-const SEASON_TAGS = ['봄/가을', '여름', '겨울', '사계절'];
-const DAILY_LOOK_CANVAS = { width: 1080, height: 1440 };
-const CUTOUT_VERSION = 'hard-alpha-v3';
-const DENIM_WASH_LABELS: Record<DenimWash, string> = {
-  light: '연청',
-  mid: '중청',
-  dark: '진청',
-  black: '흑청',
-};
-
-const PATTERN_LABELS: Record<PatternType, string> = {
-  solid: '무지',
-  stripe: '스트라이프',
-  plaid: '체크',
-  graphic: '그래픽',
-};
-
-const MATERIAL_LABELS: Record<MaterialType, string> = {
-  cotton: '면',
-  denim: '데님',
-  knit: '니트',
-  leather: '레더',
-  nylon: '나일론',
-  wool: '울',
-  unknown: '미분류',
-};
-
-const DAILY_LOOK_SLOT_BY_CATEGORY: Record<ClothingCategory, DailyLookSlot> = {
-  아우터: 'outer',
-  상의: 'upper',
-  하의: 'lower',
-  신발: 'shoes',
-  액세서리: 'accessory',
-};
-
-const PRECISION_TARGET_BY_CATEGORY: Record<ClothingCategory, string> = {
-  상의: 'upper',
-  하의: 'lower',
-  아우터: 'outer',
-  신발: 'shoes',
-  액세서리: 'accessory',
-};
-
-const CATEGORY_UI_META: Record<ClothingCategory, { label: string; hint: string; slot: DailyLookSlot }> = {
-  상의: { label: '상의', hint: '티셔츠·니트·셔츠', slot: 'upper' },
-  하의: { label: '하의', hint: '팬츠·스커트', slot: 'lower' },
-  아우터: { label: '아우터', hint: '재킷·코트', slot: 'outer' },
-  신발: { label: '신발', hint: '스니커즈·부츠', slot: 'shoes' },
-  액세서리: { label: '액세서리', hint: '가방·모자', slot: 'accessory' },
-};
-
-const DAILY_LOOK_SLOT_PRESETS: Record<DailyLookSlot, { x: number; y: number; scale: number; rotation: number; zIndex: number }> = {
-  // 추후 아이템이 늘어도 slot 프리셋만 추가/조정하면 자동 배치 흐름을 확장할 수 있습니다.
-  outer: { x: 235, y: 365, scale: 0.86, rotation: -2, zIndex: 0 },
-  upper: { x: 545, y: 350, scale: 0.8, rotation: 1, zIndex: 2 },
-  lower: { x: 545, y: 700, scale: 0.9, rotation: 0, zIndex: 1 },
-  shoes: { x: 760, y: 1120, scale: 0.48, rotation: -4, zIndex: 3 },
-  hat: { x: 785, y: 190, scale: 0.38, rotation: 5, zIndex: 4 },
-  bag: { x: 240, y: 1010, scale: 0.46, rotation: 0, zIndex: 5 },
-  accessory: { x: 830, y: 610, scale: 0.35, rotation: 4, zIndex: 6 },
-};
-
-const SEASON_LABELS: Record<SeasonId, string> = {
-  'light-spring': '라이트 스프링',
-  'true-spring': '트루 스프링',
-  'bright-spring': '브라이트 스프링',
-  'light-summer': '라이트 서머',
-  'true-summer': '트루 서머',
-  'soft-summer': '소프트 서머',
-  'soft-autumn': '소프트 어텀',
-  'true-autumn': '트루 어텀',
-  'dark-autumn': '다크 어텀',
-  'dark-winter': '다크 윈터',
-  'true-winter': '트루 윈터',
-  'bright-winter': '브라이트 윈터',
-};
-
-const TYPES: Record<ClothingCategory, string[]> = {
-  상의: ['반팔티', '긴팔티', '니트', '셔츠', '가디건', '맨투맨'],
-  하의: ['청바지', '슬랙스', '스커트', '반바지', '조거팬츠'],
-  아우터: ['재킷', '코트', '패딩', '트렌치코트', '블레이저'],
-  신발: ['스니커즈', '로퍼', '부츠', '샌들'],
-  액세서리: ['가방', '모자', '스카프', '벨트'],
-};
-
-const SIZES = {
-  tops: ['XS', 'S', 'M', 'L', 'XL'],
-  bottoms: ['24', '25', '26', '27', '28', '29', '30', '31', '32'],
-  shoes: ['220', '230', '240', '250', '260', '270', '280'],
-};
-
-const COLOR_META: Record<string, { representative: string; hex: string; neutral?: boolean; denim?: boolean }> = {
-  화이트: { representative: '화이트', hex: '#F7F7F4', neutral: true },
-  아이보리: { representative: '아이보리', hex: '#F1E8D7', neutral: true },
-  블랙: { representative: '블랙', hex: '#171717', neutral: true },
-  차콜: { representative: '차콜', hex: '#34363A', neutral: true },
-  그레이: { representative: '그레이', hex: '#8B8F97', neutral: true },
-  멜란지: { representative: '멜란지', hex: '#B8B8B2', neutral: true },
-  네이비: { representative: '네이비', hex: '#22334D', neutral: true },
-  블루: { representative: '블루', hex: '#6F95C9' },
-  스카이블루: { representative: '스카이블루', hex: '#A9CBE8' },
-  데님: { representative: '데님', hex: '#5C7898', denim: true },
-  베이지: { representative: '베이지', hex: '#D7C2A1', neutral: true },
-  샌드: { representative: '샌드', hex: '#CDBB9E', neutral: true },
-  스톤: { representative: '스톤', hex: '#B8B2A8', neutral: true },
-  브라운: { representative: '브라운', hex: '#795342' },
-  모카: { representative: '모카', hex: '#6F5548' },
-  레드: { representative: '레드', hex: '#C7474C' },
-  옐로우: { representative: '옐로우', hex: '#E7C84A' },
-  핑크: { representative: '핑크', hex: '#D8A8B5' },
-  민트: { representative: '민트', hex: '#A8D8C2' },
-  그린: { representative: '그린', hex: '#88A97E' },
-  포레스트: { representative: '포레스트', hex: '#31523C' },
-  올리브: { representative: '올리브', hex: '#7D8051' },
-  라임: { representative: '라임', hex: '#C8DD8B' },
-  카키: { representative: '카키', hex: '#737A57' },
-  퍼플: { representative: '퍼플', hex: '#8B79C9' },
-  라벤더: { representative: '라벤더', hex: '#B8A8D4' },
-};
-
-// SegFormer fine label(영문)을 앱 내부 의류 종류(한국어)로 변환합니다.
-const FINE_LABEL_TO_TYPE: Record<string, string> = {
-  'shirt, blouse': '셔츠',
-  'top, t-shirt, sweatshirt': '반팔티',
-  'sweater': '니트',
-  'cardigan': '가디건',
-  'jacket': '재킷',
-  'vest': '조끼',
-  'pants': '슬랙스',
-  'shorts': '반바지',
-  'skirt': '스커트',
-  'coat': '코트',
-  'dress': '원피스',
-  'jumpsuit': '점프수트',
-};
-
-const COLOR_NAME_PATTERNS: Array<[RegExp, keyof typeof COLOR_META]> = [
-  [/(off[-\s]?black|washed[-\s]?black|pure[-\s]?black|black|블랙|흑청)/i, '블랙'],
-  [/(charcoal|차콜)/i, '차콜'],
-  [/(heather[-\s]?grey|heather[-\s]?gray|melange[-\s]?gray|멜란지[-\s]?그레이|멜란지)/i, '멜란지'],
-  [/(grey|gray|그레이|회색)/i, '그레이'],
-  [/(navy|네이비)/i, '네이비'],
-  [/(royal[-\s]?blue|purple[-\s]?blue|dusty[-\s]?blue|soft[-\s]?blue|pale[-\s]?blue|sky[-\s]?blue|blue|블루|파랑|스카이)/i, '블루'],
-  [/(ivory|아이보리)/i, '아이보리'],
-  [/(white|화이트|흰색)/i, '화이트'],
-  [/(sand|샌드)/i, '샌드'],
-  [/(stone|스톤)/i, '스톤'],
-  [/(beige|베이지)/i, '베이지'],
-  [/(dark[-\s]?mocha|mocha|모카)/i, '모카'],
-  [/(brown|브라운|갈색)/i, '브라운'],
-  [/(dusty[-\s]?pink|pink|핑크)/i, '핑크'],
-  [/(yellow|옐로우|노랑)/i, '옐로우'],
-  [/(pale[-\s]?mint|mint|민트)/i, '민트'],
-  [/(forest|포레스트)/i, '포레스트'],
-  [/(moss|olive|올리브|모스)/i, '올리브'],
-  [/(pale[-\s]?lime|lime|라임)/i, '라임'],
-  [/(green|그린|초록)/i, '그린'],
-  [/(khaki|카키)/i, '카키'],
-  [/(purple|퍼플|보라)/i, '퍼플'],
-  [/(lavender|라벤더)/i, '라벤더'],
-];
-
-const WEATHER_RULES: Record<WeatherBand, string[]> = {
-  '4도 이하': ['패딩', '코트', '니트', '가디건'],
-  '5~8도': ['코트', '재킷', '니트', '맨투맨'],
-  '9~11도': ['블레이저', '재킷', '니트', '긴팔티', '셔츠'],
-  '12~16도': ['블레이저', '셔츠', '긴팔티', '니트', '맨투맨'],
-  '17~19도': ['셔츠', '가디건', '긴팔티', '맨투맨'],
-  '20~22도': ['반팔티', '셔츠', '블라우스'],
-  '23~27도': ['반팔티', '긴바지', '반바지', '블라우스', '스커트'],
-  '28도 이상': ['반팔티', '반바지', '샌들', '스커트'],
-};
-
-const WEATHER_BAND_ORDER: WeatherBand[] = ['4도 이하', '5~8도', '9~11도', '12~16도', '17~19도', '20~22도', '23~27도', '28도 이상'];
-
-// 선택된 기온 구간에 맞는 의류 키워드를 가져옵니다.
-// 바로 아래 구간의 키워드도 함께 포함해 날씨 경계값에서 추천이 너무 급격히 바뀌지 않게 합니다.
-function getAllowedWeatherKeywords(band: RecommendationWeatherBand) {
-  if (band === '상관없음') return [];
-  const bandIndex = WEATHER_BAND_ORDER.indexOf(band);
-  const lowerBand = bandIndex > 0 ? WEATHER_BAND_ORDER[bandIndex - 1] : null;
-  return Array.from(new Set([...(WEATHER_RULES[band] ?? []), ...(lowerBand ? WEATHER_RULES[lowerBand] ?? [] : [])]));
-}
-
-// seasonTag 기반으로 현재 기온 구간에 맞지 않는 옷을 제외합니다.
-// 겨울 옷은 더운 날, 여름 옷은 추운 날 추천에서 하드 컷합니다.
-// 점수 조정은 getWeatherScore()가 담당하고, 이 함수는 명백히 맞지 않는 경우만 제외합니다.
-function isWeatherEligible(item: ScoredClothingItem, band: RecommendationWeatherBand): boolean {
-  if (band === '상관없음') return true;
-  const bandIndex = WEATHER_BAND_ORDER.indexOf(band as WeatherBand);
-  if (item.seasonTag === '여름' && bandIndex <= 2) return false;
-  if (item.seasonTag === '겨울' && bandIndex >= 5) return false;
-  return true;
-}
 
 // 가상착용 캔버스에서 의류가 올라갈 레이어 슬롯을 결정합니다.
 function slotForItem(item: ScoredClothingItem): DailyLookSlot {
@@ -877,319 +553,6 @@ function reconcileStoredClothing(items: ClothingItem[]) {
 // 모바일 레이아웃/카메라 처리 분기를 위한 viewport 검사입니다.
 function isMobileViewport() {
   return typeof window !== 'undefined' && window.matchMedia('(max-width: 860px)').matches;
-}
-
-// 숫자 적합도 점수를 UI용 등급 라벨로 변환합니다.
-function gradeFromScore(score: number): FitGrade {
-  if (score >= 88) return 'BEST';
-  if (score >= 74) return 'GOOD';
-  if (score >= 58) return 'OK';
-  return 'CHECK';
-}
-
-// 단일 HEX에 대해 팔레트 점수와 회피 페널티를 계산합니다.
-function scoreSingleHex(
-  hex: string,
-  paletteLabs: LabColor[],
-  avoidLabs: LabColor[],
-): { paletteScore: number; avoidPenalty: number } {
-  const lab = rgbToLab(hexToRgb(hex));
-  const paletteDistance = Math.min(...paletteLabs.map((p) => deltaE2000(lab, p)));
-  const avoidDistance = avoidLabs.length ? Math.min(...avoidLabs.map((a) => deltaE2000(lab, a))) : 100;
-  return {
-    paletteScore: Math.max(0, 100 - paletteDistance * 4.5),
-    avoidPenalty: avoidDistance < 10 ? 22 : avoidDistance < 16 ? 10 : 0,
-  };
-}
-
-// 의류 대표색과 사용자의 퍼스널컬러 팔레트를 비교해 의류 적합도를 계산합니다.
-// dominantColors 배열이 있으면 최대 3색을 비율 가중 평균으로 매칭해 체크/스트라이프 의류 정확도를 높입니다.
-function scoreItemForPersonalColor(item: ClothingItem, result: FinalResult | null): ScoredClothingItem {
-  if (!result) {
-    return {
-      ...item,
-      personalFitScore: null,
-      fitGrade: null,
-      fitReason: '측정 후 계산됨',
-      avoidRisk: false,
-    };
-  }
-
-  const worstColors = SEASON_DETAILS[result.seasonTop1Id]?.worstColors ?? [];
-  const paletteLabs = result.palette.map((hex) => rgbToLab(hexToRgb(hex)));
-  const avoidLabs = worstColors.map((hex) => rgbToLab(hexToRgb(hex)));
-
-  // dominantColors가 있으면 상위 3색 비율 가중 평균, 없으면 대표색 단일값 사용
-  const colorSamples: { hex: string; ratio: number }[] =
-    item.dominantColors && item.dominantColors.length > 0
-      ? item.dominantColors.slice(0, 3).map((c) => ({ hex: c.hex ?? item.representativeHex, ratio: c.ratio ?? 1 }))
-      : [{ hex: item.representativeHex, ratio: 1 }];
-
-  const totalRatio = colorSamples.reduce((sum, c) => sum + c.ratio, 0) || 1;
-  let weightedPaletteScore = 0;
-  let weightedAvoidPenalty = 0;
-  for (const { hex, ratio } of colorSamples) {
-    const w = ratio / totalRatio;
-    const { paletteScore, avoidPenalty } = scoreSingleHex(hex, paletteLabs, avoidLabs);
-    weightedPaletteScore += paletteScore * w;
-    weightedAvoidPenalty += avoidPenalty * w;
-  }
-
-  const utilityBonus = item.isNeutral || item.isDenim ? 8 : 0;
-  const score = Math.max(0, Math.min(100, Math.round(weightedPaletteScore + utilityBonus - weightedAvoidPenalty)));
-
-  return {
-    ...item,
-    personalFitScore: score,
-    fitGrade: gradeFromScore(score),
-    fitReason: `${SEASON_LABELS[result.seasonTop1Id]} 팔레트 기준 ${score}점`,
-    avoidRisk: weightedAvoidPenalty > 5,
-  };
-}
-
-// 의류 하나가 현재 날씨 구간에 얼마나 맞는지 점수화합니다.
-// 상태값(세탁중/보관중/추천제외)도 함께 반영해 실제 착용 가능성을 점수에 넣습니다.
-function getWeatherScore(item: ScoredClothingItem, band: RecommendationWeatherBand) {
-  if (band === '상관없음') {
-    if (item.availabilityStatus === '추천제외') return 0;
-    if (item.availabilityStatus === '세탁중') return 35;
-    if (item.availabilityStatus === '보관중') return 55;
-    return item.isNeutral || item.isDenim ? 82 : 72;
-  }
-  const keywords = getAllowedWeatherKeywords(band);
-  if (item.availabilityStatus === '추천제외') return 0;
-  if (item.availabilityStatus === '세탁중') return 20;
-  if (item.availabilityStatus === '보관중') return 45;
-  let score = 60;
-  if (keywords.some((keyword) => item.type.includes(keyword))) score += 28;
-  if (item.seasonTag === '사계절') score += 8;
-  if (band.includes('28') && item.seasonTag === '겨울') score -= 30;
-  if ((band.includes('4') || band.includes('5~8')) && item.seasonTag === '여름') score -= 25;
-  return Math.max(0, Math.min(100, score));
-}
-
-// 같은 카탈로그 상품이 여러 번 추천 후보에 들어오는 것을 막기 위한 중복 기준 키입니다.
-function itemUniqueKey(item: ScoredClothingItem) {
-  return item.catalogItemId ?? item.imageUrl;
-}
-
-// 추천 후보 배열에서 같은 상품을 한 번만 남깁니다.
-function dedupeRecommendationItems(items: ScoredClothingItem[]) {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    const key = itemUniqueKey(item);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-// 코디 조합 중복을 막기 위해 아이템 키를 정렬해 조합 키로 만듭니다.
-function outfitUniqueKey(items: ScoredClothingItem[]) {
-  return items.map(itemUniqueKey).sort().join('|');
-}
-
-// HSL 색상환에서 두 HEX 색상의 hue 각도 차이를 0~180° 범위로 반환합니다.
-function hueAngleDiff(hex1: string, hex2: string): number {
-  const h1 = rgbToHsl(hexToRgb(hex1)).h * 360;
-  const h2 = rgbToHsl(hexToRgb(hex2)).h * 360;
-  const diff = Math.abs(h1 - h2);
-  return diff > 180 ? 360 - diff : diff;
-}
-
-// Itten 색상 이론에 따른 조화 유형과 기본 점수입니다.
-const HARMONY_BASE_SCORES: Record<string, number> = {
-  monochromatic: 80,  // 0~15°: 같은 색 명도/채도 변주
-  analogous: 82,      // 16~45°: 인접색, 차분하고 통일감 있음
-  tension: 55,        // 46~90°: 어색한 충돌 구간
-  triadic: 76,        // 91~135°: 균형 잡힌 3색 조화
-  complementary: 88,  // 136~180°: 보색, 강하고 세련된 대비
-};
-
-function classifyHarmonyType(angleDiff: number): string {
-  if (angleDiff <= 15) return 'monochromatic';
-  if (angleDiff <= 45) return 'analogous';
-  if (angleDiff <= 90) return 'tension';
-  if (angleDiff <= 135) return 'triadic';
-  return 'complementary';
-}
-
-const HARMONY_TITLE_KO: Record<string, string> = {
-  monochromatic: '심플 모노톤',
-  analogous: '자연스러운 유사색',
-  tension: '포인트 배색',
-  triadic: '다채로운 삼색',
-  complementary: '선명한 대비',
-  neutral: '차분한 무채색',
-};
-
-const HARMONY_BADGE_KO: Record<string, string> = {
-  monochromatic: '단색 조화',
-  analogous: '유사색 조화',
-  tension: '포인트 배색',
-  triadic: '삼각 배색',
-  complementary: '보색 대비',
-  neutral: '무채색 조화',
-};
-
-function getHarmonyType(items: ScoredClothingItem[]): string {
-  const top = items.find((i) => i.category === '상의');
-  const bottom = items.find((i) => i.category === '하의');
-  if (!top || !bottom) return 'neutral';
-  if (top.isNeutral || bottom.isNeutral) return 'neutral';
-  return classifyHarmonyType(hueAngleDiff(top.representativeHex, bottom.representativeHex));
-}
-
-// 색상 버킷 레이블 (hue 각도 기반 8구간 + 무채색)
-const HUE_BUCKET_KO: Record<string, string> = {
-  red: '빨강', orange: '주황', yellow: '노랑', green: '초록',
-  cyan: '청록', blue: '파랑', purple: '보라', pink: '분홍', neutral: '무채색',
-};
-
-// hex 색상을 hue 버킷으로 분류합니다. 채도 0.15 미만은 무채색으로 처리합니다.
-function getHueBucket(hex: string): string {
-  const hsl = rgbToHsl(hexToRgb(hex));
-  if (hsl.s < 0.15) return 'neutral';
-  const h = hsl.h * 360;
-  if (h < 20 || h >= 340) return 'red';
-  if (h < 45) return 'orange';
-  if (h < 75) return 'yellow';
-  if (h < 155) return 'green';
-  if (h < 195) return 'cyan';
-  if (h < 255) return 'blue';
-  if (h < 315) return 'purple';
-  return 'pink';
-}
-
-interface ColorGroup {
-  key: string;
-  topBucket: string;
-  bottomBucket: string;
-  topHex: string;
-  bottomHex: string;
-  outfits: OutfitRecommendation[];
-}
-
-// 추천 결과를 상의×하의 색상 버킷 조합으로 묶습니다.
-function groupByColorCombo(outfits: OutfitRecommendation[]): ColorGroup[] {
-  const map = new Map<string, ColorGroup>();
-  for (const outfit of outfits) {
-    const top = outfit.items.find((i) => i.category === '상의');
-    const bottom = outfit.items.find((i) => i.category === '하의');
-    const tb = top ? getHueBucket(top.representativeHex) : 'neutral';
-    const bb = bottom ? getHueBucket(bottom.representativeHex) : 'neutral';
-    const key = `${tb}×${bb}`;
-    if (!map.has(key)) {
-      map.set(key, {
-        key, topBucket: tb, bottomBucket: bb,
-        topHex: top?.representativeHex ?? '#888',
-        bottomHex: bottom?.representativeHex ?? '#888',
-        outfits: [],
-      });
-    }
-    map.get(key)!.outfits.push(outfit);
-  }
-  // 그룹 내 최고 점수 기준 내림차순 정렬
-  return [...map.values()].sort((a, b) => b.outfits[0].score - a.outfits[0].score);
-}
-
-function scoreGrade(score: number): string {
-  if (score >= 90) return 'S';
-  if (score >= 80) return 'A';
-  if (score >= 70) return 'B';
-  if (score >= 60) return 'C';
-  return 'D';
-}
-
-// 코디 내 패턴 조합 페널티를 계산합니다. 그래픽+솔리드, 같은 패턴 중복은 감점됩니다.
-function calculatePatternPenalty(items: ScoredClothingItem[]): number {
-  const patterns = items.map((i) => i.patternType).filter((p) => p !== 'solid');
-  if (patterns.length <= 1) return 0;
-  if (patterns.includes('graphic') && patterns.length > 1) return 22;
-  if (patterns[0] === patterns[1]) return 14;
-  return 8;
-}
-
-// Itten 색상 이론 기반 hue 각도로 조화 유형을 분류하고, 퍼스널컬러 시즌의 대비 선호도로 점수를 조정합니다.
-function calculateHarmonyScore(items: ScoredClothingItem[], result: FinalResult | null): number {
-  const top = items.find((i) => i.category === '상의');
-  const bottom = items.find((i) => i.category === '하의');
-  if (!top || !bottom) return 75;
-
-  const patternPenalty = calculatePatternPenalty(items);
-
-  // 중성색은 hue가 무의미하므로 별도 처리합니다.
-  if (top.isNeutral || bottom.isNeutral) {
-    return Math.min(100, Math.max(0, 85 - patternPenalty));
-  }
-
-  const angleDiff = hueAngleDiff(top.representativeHex, bottom.representativeHex);
-  const harmonyType = classifyHarmonyType(angleDiff);
-  let score = HARMONY_BASE_SCORES[harmonyType];
-
-  // 시즌 대비 선호도에 따라 타입별 가산/감산을 적용합니다.
-  const preferredContrast = result ? SEASON_PROFILES[result.seasonTop1Id].traits.contrast : 0;
-  if (harmonyType === 'complementary') score += preferredContrast > 0.5 ? 6 : preferredContrast < -0.2 ? -10 : 0;
-  if (harmonyType === 'analogous') score += preferredContrast < -0.2 ? 6 : 0;
-
-  return Math.min(100, Math.max(0, score - patternPenalty));
-}
-
-// 동일 아이템이 결과 목록에 과도하게 반복되지 않도록 아이템당 최대 등장 횟수를 제한합니다.
-function diversifyRecommendations(outfits: OutfitRecommendation[], maxPerItem = 3): OutfitRecommendation[] {
-  const appearances = new Map<string, number>();
-  return outfits.filter((outfit) => {
-    if (outfit.items.some((item) => (appearances.get(item.id) ?? 0) >= maxPerItem)) return false;
-    outfit.items.forEach((item) => appearances.set(item.id, (appearances.get(item.id) ?? 0) + 1));
-    return true;
-  });
-}
-
-// 상의/하의/아우터/신발 후보를 조합해 코디 추천 리스트를 만듭니다.
-// 최종 점수는 퍼스널컬러 38%, 날씨 22%, 색상 조화 28%, 착용 안정성 12%로 계산합니다.
-function buildRecommendations(items: ScoredClothingItem[], band: RecommendationWeatherBand, mode: RecommendationMode, result: FinalResult | null): OutfitRecommendation[] {
-  const available = dedupeRecommendationItems(items.filter((item) => item.availabilityStatus !== '추천제외' && item.availabilityStatus !== '세탁중'));
-  const weatherFiltered = band === '상관없음' ? available : available.filter((item) => isWeatherEligible(item, band));
-  const tops = weatherFiltered.filter((item) => item.category === '상의');
-  const bottoms = weatherFiltered.filter((item) => item.category === '하의');
-  const outerwear = weatherFiltered.filter((item) => item.category === '아우터');
-  const outfits: OutfitRecommendation[] = [];
-  const seenOutfits = new Set<string>();
-  const outerOptions = [undefined, ...outerwear.sort((a, b) => getWeatherScore(b, band) - getWeatherScore(a, band))];
-
-  tops.forEach((top) => {
-    bottoms.forEach((bottom) => {
-      outerOptions.forEach((outer) => {
-        const outfitItems = dedupeRecommendationItems([outer, top, bottom].filter(Boolean) as ScoredClothingItem[]);
-        if (outfitItems.length < 2) return;
-        const key = outfitUniqueKey(outfitItems);
-        if (seenOutfits.has(key)) return;
-        seenOutfits.add(key);
-        const personalScore = Math.round(outfitItems.reduce((sum, item) => sum + (item.personalFitScore ?? 55), 0) / outfitItems.length);
-        const weatherScore = Math.round(outfitItems.reduce((sum, item) => sum + getWeatherScore(item, band), 0) / outfitItems.length);
-        const harmonyScore = calculateHarmonyScore(outfitItems, result);
-        const stabilityScore = outfitItems.every((item) => item.availabilityStatus === '보유중') ? 92 : 68;
-        const score = Math.round(personalScore * 0.38 + weatherScore * 0.22 + harmonyScore * 0.28 + stabilityScore * 0.12);
-        const harmonyType = getHarmonyType(outfitItems);
-        outfits.push({
-          id: `${top.id}-${bottom.id}-${outer?.id ?? 'noouter'}`,
-          title: `${HARMONY_TITLE_KO[harmonyType] ?? ''} ${mode} 코디`,
-          harmonyType,
-          score,
-          personalScore,
-          harmonyScore,
-          weatherScore,
-          stabilityScore,
-          items: outfitItems,
-          reason: band === '상관없음' ? '퍼스널 컬러 적합도와 코디 안정성을 우선 반영했습니다.' : `퍼스널 컬러 적합도와 ${band} 날씨 조건을 함께 반영했습니다.`,
-          weatherBand: band,
-          mode,
-        });
-      });
-    });
-  });
-
-  return diversifyRecommendations(outfits.sort((a, b) => b.score - a.score).slice(0, 60));
 }
 
 // 앱의 최상위 상태 컨테이너입니다.
@@ -2918,7 +2281,7 @@ function ColorTileGrid({ colors, compact }: { colors: string[]; compact?: boolea
 }
 
 // 단일 outfit 카드 렌더링 (RecommendationList 내부 재사용)
-function OutfitCard({ outfit, onSave }: { outfit: OutfitRecommendation; onSave: (outfit: OutfitRecommendation) => void }) {
+function OutfitCard({ outfit, onSave }: { key?: React.Key; outfit: OutfitRecommendation; onSave: (outfit: OutfitRecommendation) => void }) {
   return (
     <article className="panel outfit-card" key={outfit.id}>
       <div className="result-head">
