@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import PhotoAnalyzer from './components/PhotoAnalyzer';
 import Questionnaire from './components/Questionnaire';
+import { BackTitle, Chip, ColorTileGrid, EmptyState, InfoBox, MetricBox, PageTitle, PanelTitle, StatCard } from './components/common';
 import { FAMILY_GUIDES, FAMILY_LABELS, PERSONAL_COLOR_MODEL_NOTE, SEASON_DETAILS } from './seasonContent';
 import { fuseResults } from './services/personalColorEngine';
 import { TRAINING_CATALOG_ITEMS } from './data/trainingCatalog';
@@ -1315,11 +1316,6 @@ function MobileNav({ page, go }: { page: Page; go: (page: Page) => void }) {
   );
 }
 
-// 각 페이지 상단의 제목/설명 영역을 통일하기 위한 작은 표시 컴포넌트입니다.
-function PageTitle({ title, description, icon }: { title: string; description: string; icon?: React.ReactNode }) {
-  return <div className="section-title">{icon}<div><h1>{title}</h1><p>{description}</p></div></div>;
-}
-
 // 홈 대시보드입니다. 진단 상태, 옷장 현황, 오늘 추천으로 들어가는 시작점을 제공합니다.
 function HomeDashboard(props: {
   personalColorResult: FinalResult | null;
@@ -1520,11 +1516,6 @@ function WardrobeOverview(props: {
       </div>
     </section>
   );
-}
-
-// 작은 통계 카드입니다. 홈/옷장 요약에서 숫자 정보를 압축해 보여줍니다.
-function StatCard({ label, value }: { label: string; value: string }) {
-  return <section className="stat-card"><span>{label}</span><strong>{value}</strong></section>;
 }
 
 // 옷장 하나를 카드로 표시합니다. 이름 수정/삭제/상세 진입 액션을 포함합니다.
@@ -1792,11 +1783,6 @@ function CatalogPreviewView(props: {
       </div>
     </section>
   );
-}
-
-// 뒤로가기 버튼이 있는 서브 화면 제목 영역입니다.
-function BackTitle({ title, description, onBack, right }: { title: string; description: string; onBack: () => void; right?: React.ReactNode }) {
-  return <div className="back-title"><button className="round-back" type="button" onClick={onBack}><ArrowLeft size={18} /></button><div><h1>{title}</h1>{description && <p>{description}</p>}</div>{right && <div className="back-title-right">{right}</div>}</div>;
 }
 
 // 사용자가 직접 의류를 등록하는 화면입니다. 이미지, 카테고리, 타입, 색상, 사이즈, 브랜드를 입력받습니다.
@@ -2247,43 +2233,6 @@ function PersonalColorHistoryPanel({ history, current, onApply }: { history: Per
         </div>
       )}
     </section>
-  );
-}
-
-// 패널 내부 소제목을 통일하는 표시 컴포넌트입니다.
-function PanelTitle({ title }: { title: string }) {
-  return <h2 className="panel-title">{title}</h2>;
-}
-
-// 설명 문장, 태그, 색상칩을 한 박스에 묶어 보여주는 정보 컴포넌트입니다.
-function InfoBox({ title, body, chips, colors }: { title: string; body: string; chips?: string[]; colors?: string[] }) {
-  return (
-    <section className="info-box">
-      <h3>{title}</h3>
-      {body.split('\n').map((line) => <p key={line}>{line}</p>)}
-      {chips && <div className="result-pill-row">{chips.map((chip) => <span key={chip}>{chip}</span>)}</div>}
-      {colors && <ColorTileGrid colors={colors} compact />}
-    </section>
-  );
-}
-
-// 점수/개수 같은 핵심 수치를 한 줄로 강조하는 컴포넌트입니다.
-function MetricBox({ title, value, detail }: { title: string; value: string; detail?: string }) {
-  return (
-    <section className="metric-box">
-      <small>{title}</small>
-      <strong>{value}</strong>
-      {detail && <p>{detail}</p>}
-    </section>
-  );
-}
-
-// HEX 팔레트를 색상 타일 그리드로 표시합니다.
-function ColorTileGrid({ colors, compact }: { colors: string[]; compact?: boolean }) {
-  return (
-    <div className={compact ? 'color-tile-grid compact' : 'color-tile-grid'}>
-      {colors.map((hex, idx) => <span key={`${hex}-${idx}`}><i style={{ backgroundColor: hex }} /><small>{hex}</small></span>)}
-    </div>
   );
 }
 
@@ -2993,16 +2942,6 @@ function loadCanvasImage(src: string) {
     image.onerror = reject;
     image.src = src;
   });
-}
-
-// 데이터가 없을 때 보여주는 공통 빈 상태 UI입니다.
-function EmptyState({ title, description, action }: { title: string; description: string; action?: React.ReactNode }) {
-  return <section className="panel empty-state"><h2>{title}</h2><p>{description}</p>{action}</section>;
-}
-
-// HEX 색상을 작은 원형 칩으로 보여주는 컴포넌트입니다.
-function Chip({ hex, label, large }: { key?: React.Key; hex: string; label?: string; large?: boolean }) {
-  return <span className={large ? 'color-chip large' : 'color-chip'} title={label} style={{ backgroundColor: hex }}>{label && <small>{label}</small>}</span>;
 }
 
 export default App;
