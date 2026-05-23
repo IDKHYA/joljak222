@@ -130,6 +130,8 @@ export interface OutfitRecommendation {
   title: string;
   harmonyType: string;
   score: number;
+  baseScore: number;
+  qualityAdjustment: number;
   personalScore: number;
   harmonyScore: number;
   weatherScore: number;

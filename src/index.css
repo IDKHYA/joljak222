@@ -880,6 +880,44 @@ select {
   padding: 10px 0 12px;
 }
 
+.score-audit-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border: 1px solid #d8dee8;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+}
+
+.score-audit-panel strong {
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.score-audit-panel span {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+}
+
+.score-audit-panel .positive {
+  color: #047857;
+  border-color: #bbf7d0;
+  background: #ecfdf5;
+}
+
+.score-audit-panel .negative {
+  color: #be123c;
+  border-color: #fecdd3;
+  background: #fff1f2;
+}
+
 .color-combo-pill {
   display: inline-flex;
   align-items: center;

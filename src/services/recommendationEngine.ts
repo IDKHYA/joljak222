@@ -243,6 +243,7 @@ export function getHueBucket(hex: string): string {
 
 export interface ColorGroup {
   key: string;
+  label: string;
   topBucket: string;
   bottomBucket: string;
   topHex: string;
@@ -250,27 +251,48 @@ export interface ColorGroup {
   outfits: OutfitRecommendation[];
 }
 
-// 추천 결과를 상의×하의 색상 버킷 조합으로 묶습니다.
+const COLOR_GROUP_DELTA_E_THRESHOLD = 22;
+
+function colorDistance(leftHex: string, rightHex: string): number {
+  return deltaE2000(rgbToLab(hexToRgb(leftHex)), rgbToLab(hexToRgb(rightHex)));
+}
+
+function findSimilarColorGroup(groups: ColorGroup[], topHex: string, bottomHex: string): ColorGroup | undefined {
+  return groups.find((group) =>
+    colorDistance(group.topHex, topHex) <= COLOR_GROUP_DELTA_E_THRESHOLD &&
+    colorDistance(group.bottomHex, bottomHex) <= COLOR_GROUP_DELTA_E_THRESHOLD,
+  );
+}
+
+// 추천 결과를 고정 hue 버킷이 아니라 실제 Lab 거리상 가까운 상의×하의 조합으로 묶습니다.
 export function groupByColorCombo(outfits: OutfitRecommendation[]): ColorGroup[] {
-  const map = new Map<string, ColorGroup>();
+  const groups: ColorGroup[] = [];
   for (const outfit of outfits) {
     const top = outfit.items.find((i) => i.category === '상의');
     const bottom = outfit.items.find((i) => i.category === '하의');
+    const topHex = top?.representativeHex ?? '#888888';
+    const bottomHex = bottom?.representativeHex ?? '#888888';
     const tb = top ? getHueBucket(top.representativeHex) : 'neutral';
     const bb = bottom ? getHueBucket(bottom.representativeHex) : 'neutral';
-    const key = `${tb}×${bb}`;
-    if (!map.has(key)) {
-      map.set(key, {
-        key, topBucket: tb, bottomBucket: bb,
-        topHex: top?.representativeHex ?? '#888',
-        bottomHex: bottom?.representativeHex ?? '#888',
+    const existing = findSimilarColorGroup(groups, topHex, bottomHex);
+    if (existing) {
+      existing.outfits.push(outfit);
+    } else {
+      const index = groups.length + 1;
+      groups.push({
+        key: `lab-${index}`,
+        label: `비슷한 색 조합 ${index}`,
+        topBucket: tb,
+        bottomBucket: bb,
+        topHex,
+        bottomHex,
         outfits: [],
       });
+      groups[groups.length - 1].outfits.push(outfit);
     }
-    map.get(key)!.outfits.push(outfit);
   }
   // 그룹 내 최고 점수 기준 내림차순 정렬
-  return [...map.values()].sort((a, b) => b.outfits[0].score - a.outfits[0].score);
+  return groups.sort((a, b) => b.outfits[0].score - a.outfits[0].score);
 }
 
 export function scoreGrade(score: number): string {
@@ -361,22 +383,22 @@ function colorHarmonyFeatures(hex: string) {
   };
 }
 
-function calculateLightnessBalanceScore(topHex: string, bottomHex: string): number {
-  const top = colorHarmonyFeatures(topHex);
-  const bottom = colorHarmonyFeatures(bottomHex);
-  const diff = Math.abs(top.lightness - bottom.lightness);
+function calculateLightnessBalanceScore(firstHex: string, secondHex: string): number {
+  const first = colorHarmonyFeatures(firstHex);
+  const second = colorHarmonyFeatures(secondHex);
+  const diff = Math.abs(first.lightness - second.lightness);
   const base = 100 - Math.abs(diff - 0.22) * 120;
   const lowContrastPenalty = diff < 0.08 ? 28 : 0;
   const highContrastPenalty = diff > 0.55 ? 10 : 0;
   return clamp(base - lowContrastPenalty - highContrastPenalty, 45, 100);
 }
 
-function calculateSaturationBalanceScore(topHex: string, bottomHex: string): number {
-  const top = colorHarmonyFeatures(topHex);
-  const bottom = colorHarmonyFeatures(bottomHex);
-  const diff = Math.abs(top.saturation - bottom.saturation);
-  const doublePointPenalty = top.saturation > 0.65 && bottom.saturation > 0.65 ? 12 : 0;
-  const flatPenalty = top.saturation < 0.12 && bottom.saturation < 0.12 ? 6 : 0;
+function calculateSaturationBalanceScore(firstHex: string, secondHex: string): number {
+  const first = colorHarmonyFeatures(firstHex);
+  const second = colorHarmonyFeatures(secondHex);
+  const diff = Math.abs(first.saturation - second.saturation);
+  const doublePointPenalty = first.saturation > 0.65 && second.saturation > 0.65 ? 12 : 0;
+  const flatPenalty = first.saturation < 0.12 && second.saturation < 0.12 ? 6 : 0;
   return clamp(100 - diff * 45 - doublePointPenalty - flatPenalty, 45, 100);
 }
 
@@ -389,28 +411,51 @@ function calculateUtilityStabilityBonus(items: ScoredClothingItem[]): number {
   return 0;
 }
 
-// Itten 색상 이론 기반 hue 각도로 조화 유형을 분류하고, 퍼스널컬러 시즌의 대비 선호도로 점수를 조정합니다.
+function calculatePairHarmonyScore(first: ScoredClothingItem, second: ScoredClothingItem, result: FinalResult | null): number {
+  const angleDiff = hueAngleDiff(first.representativeHex, second.representativeHex);
+  const harmonyType = first.isNeutral || second.isNeutral ? 'neutral' : classifyHarmonyType(angleDiff);
+  const hueScore = HARMONY_BASE_SCORES[harmonyType] ?? 85;
+  const lightnessScore = calculateLightnessBalanceScore(first.representativeHex, second.representativeHex);
+  const saturationScore = calculateSaturationBalanceScore(first.representativeHex, second.representativeHex);
+  let score = hueScore * 0.5 + lightnessScore * 0.3 + saturationScore * 0.2;
+
+  const preferredContrast = result ? SEASON_PROFILES[result.seasonTop1Id].traits.contrast : 0;
+  if (harmonyType === 'complementary') score += preferredContrast > 0.5 ? 6 : preferredContrast < -0.2 ? -10 : 0;
+  if (harmonyType === 'analogous') score += preferredContrast < -0.2 ? 6 : 0;
+
+  return score;
+}
+
+// Itten 색상 이론 기반 hue 각도에 명도와 채도를 더하고, 아우터가 있으면 바깥 레이어까지 함께 평가합니다.
 export function calculateHarmonyScore(items: ScoredClothingItem[], result: FinalResult | null): number {
   const top = items.find((i) => i.category === '상의');
   const bottom = items.find((i) => i.category === '하의');
   if (!top || !bottom) return 75;
 
   const patternPenalty = calculatePatternPenalty(items);
+  const outer = items.find((i) => i.category === '아우터');
 
-  // 중성색은 hue가 무의미하므로 별도 처리합니다.
-  const angleDiff = hueAngleDiff(top.representativeHex, bottom.representativeHex);
-  const harmonyType = top.isNeutral || bottom.isNeutral ? 'neutral' : classifyHarmonyType(angleDiff);
-  const hueScore = HARMONY_BASE_SCORES[harmonyType] ?? 85;
-  const lightnessScore = calculateLightnessBalanceScore(top.representativeHex, bottom.representativeHex);
-  const saturationScore = calculateSaturationBalanceScore(top.representativeHex, bottom.representativeHex);
-  let score = hueScore * 0.5 + lightnessScore * 0.3 + saturationScore * 0.2 + calculateUtilityStabilityBonus(items);
-
-  // 시즌 대비 선호도에 따라 타입별 가산/감산을 적용합니다.
-  const preferredContrast = result ? SEASON_PROFILES[result.seasonTop1Id].traits.contrast : 0;
-  if (harmonyType === 'complementary') score += preferredContrast > 0.5 ? 6 : preferredContrast < -0.2 ? -10 : 0;
-  if (harmonyType === 'analogous') score += preferredContrast < -0.2 ? 6 : 0;
+  let score = calculatePairHarmonyScore(top, bottom, result);
+  if (outer) {
+    score = score * 0.5
+      + calculatePairHarmonyScore(outer, top, result) * 0.3
+      + calculatePairHarmonyScore(outer, bottom, result) * 0.2;
+  }
+  score += calculateUtilityStabilityBonus(items);
 
   return Math.min(100, Math.max(0, score - patternPenalty));
+}
+
+function calculateBaseScore(personalScore: number, weatherScore: number, outfitItems: ScoredClothingItem[]): number {
+  const harmonyType = getHarmonyType(outfitItems);
+  const legacyHarmonyScore = HARMONY_BASE_SCORES[harmonyType] ?? 75;
+  const stabilityScore = outfitItems.every((item) => item.availabilityStatus === '보유중') ? 92 : 68;
+  return Math.round(
+    personalScore * SCORE_WEIGHTS.personal +
+    weatherScore * SCORE_WEIGHTS.weather +
+    legacyHarmonyScore * SCORE_WEIGHTS.harmony +
+    stabilityScore * SCORE_WEIGHTS.stability,
+  );
 }
 
 // 동일 아이템이 결과 목록에 과도하게 반복되지 않도록 아이템당 최대 등장 횟수를 제한합니다.
@@ -454,12 +499,15 @@ export function buildRecommendations(items: ScoredClothingItem[], band: Recommen
           stability: Math.round(stabilityScore * SCORE_WEIGHTS.stability),
         };
         const score = scoreBreakdown.personal + scoreBreakdown.weather + scoreBreakdown.harmony + scoreBreakdown.stability;
+        const baseScore = calculateBaseScore(personalScore, weatherScore, outfitItems);
         const harmonyType = getHarmonyType(outfitItems);
         outfits.push({
           id: `${top.id}-${bottom.id}-${outer?.id ?? 'noouter'}`,
           title: `${HARMONY_TITLE_KO[harmonyType] ?? ''} ${mode} 코디`,
           harmonyType,
           score,
+          baseScore,
+          qualityAdjustment: score - baseScore,
           personalScore,
           harmonyScore,
           weatherScore,

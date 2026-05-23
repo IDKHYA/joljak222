@@ -11,7 +11,7 @@ import {
   scorePaletteDistance,
   scoreItemForPersonalColor,
 } from './recommendationEngine';
-import type { ClothingItem, ScoredClothingItem } from '../wardrobeTypes';
+import type { ClothingItem, OutfitRecommendation, ScoredClothingItem } from '../wardrobeTypes';
 
 // 필드가 많은 ScoredClothingItem을 테스트마다 다시 쓰지 않도록 기본값 + 일부 덮어쓰기로 생성합니다.
 function mockItem(overrides: Partial<ScoredClothingItem> = {}): ScoredClothingItem {
@@ -124,6 +124,23 @@ describe('calculateHarmonyScore', () => {
 
     expect(stabilized).toBeGreaterThan(doublePoint);
   });
+
+  it('아우터가 있으면 안쪽 상하의뿐 아니라 바깥 레이어 조화도 반영한다', () => {
+    const baseItems = [
+      mockItem({ category: '상의', representativeHex: '#F5F5DC' }),
+      mockItem({ category: '하의', representativeHex: '#1F2937', isNeutral: true }),
+    ];
+    const balancedOuter = calculateHarmonyScore([
+      ...baseItems,
+      mockItem({ category: '아우터', representativeHex: '#6B7280', isNeutral: true }),
+    ], null);
+    const clashingOuter = calculateHarmonyScore([
+      ...baseItems,
+      mockItem({ category: '아우터', representativeHex: '#00FF00' }),
+    ], null);
+
+    expect(balancedOuter).toBeGreaterThan(clashingOuter);
+  });
 });
 
 describe('scoreItemForPersonalColor', () => {
@@ -149,6 +166,8 @@ describe('buildRecommendations', () => {
     expect(result).toHaveLength(1);
     expect(result[0].items).toHaveLength(2);
     expect(result[0].score).toBeGreaterThan(0);
+    expect(result[0].baseScore).toEqual(expect.any(Number));
+    expect(result[0].qualityAdjustment).toBe(result[0].score - result[0].baseScore);
     expect(result[0].scoreBreakdown).toEqual({
       personal: expect.any(Number),
       weather: expect.any(Number),
@@ -167,14 +186,20 @@ describe('buildRecommendations', () => {
 });
 
 describe('groupByColorCombo', () => {
-  it('저채도 카키색은 무채색이 아니라 hue 기준 색상군으로 분류한다', () => {
+  it('대표색 버킷이 달라도 Lab 거리상 가까우면 같은 조합으로 묶는다', () => {
     const top = mockItem({ category: '상의', representativeHex: '#6F6F5E' });
     const bottom = mockItem({ category: '하의', representativeHex: '#1D4ED8' });
-    const groups = groupByColorCombo([{
+    const closeTop = mockItem({ id: 'close-top', category: '상의', representativeHex: '#747465' });
+    const closeBottom = mockItem({ id: 'close-bottom', category: '하의', representativeHex: '#1E40AF' });
+    const farTop = mockItem({ id: 'far-top', category: '상의', representativeHex: '#F97316' });
+    const farBottom = mockItem({ id: 'far-bottom', category: '하의', representativeHex: '#FDE68A' });
+    const baseOutfit: OutfitRecommendation = {
       id: 'outfit-1',
       title: '테스트 코디',
       harmonyType: 'neutral',
       score: 80,
+      baseScore: 78,
+      qualityAdjustment: 2,
       personalScore: 70,
       harmonyScore: 85,
       weatherScore: 72,
@@ -185,10 +210,16 @@ describe('groupByColorCombo', () => {
       explanationBullets: [],
       weatherBand: '상관없음',
       mode: '데일리',
-    }]);
+    };
+    const groups = groupByColorCombo([
+      { ...baseOutfit, items: [top, bottom] },
+      { ...baseOutfit, id: 'outfit-2', items: [closeTop, closeBottom] },
+      { ...baseOutfit, id: 'outfit-3', score: 60, items: [farTop, farBottom] },
+    ]);
 
-    expect(groups[0].topBucket).toBe('yellow');
-    expect(groups[0].bottomBucket).toBe('blue');
+    expect(groups).toHaveLength(2);
+    expect(groups[0].label).toBe('비슷한 색 조합 1');
+    expect(groups[0].outfits).toHaveLength(2);
     expect(groups[0].topHex).toBe('#6F6F5E');
     expect(groups[0].bottomHex).toBe('#1D4ED8');
   });

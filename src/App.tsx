@@ -102,7 +102,6 @@ import {
   buildRecommendations,
   groupByColorCombo,
   HARMONY_BADGE_KO,
-  HUE_BUCKET_KO,
   scoreGrade,
   scoreItemForPersonalColor,
 } from './services/recommendationEngine';
@@ -2191,6 +2190,13 @@ function OutfitCard({ outfit, onSave }: { key?: React.Key; outfit: OutfitRecomme
 function RecommendationList({ recommendations, onSave }: { recommendations: OutfitRecommendation[]; onSave: (outfit: OutfitRecommendation) => void }) {
   const groups = useMemo(() => groupByColorCombo(recommendations), [recommendations]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const scoreAudit = useMemo(() => {
+    const count = recommendations.length || 1;
+    const averageBase = Math.round(recommendations.reduce((sum, outfit) => sum + outfit.baseScore, 0) / count);
+    const averageFinal = Math.round(recommendations.reduce((sum, outfit) => sum + outfit.score, 0) / count);
+    const averageAdjustment = Math.round(recommendations.reduce((sum, outfit) => sum + outfit.qualityAdjustment, 0) / count);
+    return { averageBase, averageFinal, averageAdjustment };
+  }, [recommendations]);
 
   const displayed = selectedKey
     ? (groups.find((g) => g.key === selectedKey)?.outfits ?? [])
@@ -2198,6 +2204,14 @@ function RecommendationList({ recommendations, onSave }: { recommendations: Outf
 
   return (
     <section className="recommendation-scroll-box">
+      <div className="score-audit-panel">
+        <strong>추천 점수 진단</strong>
+        <span>기존 축 평균 {scoreAudit.averageBase}점</span>
+        <span>코디 보정 후 {scoreAudit.averageFinal}점</span>
+        <span className={scoreAudit.averageAdjustment >= 0 ? 'positive' : 'negative'}>
+          평균 변화 {scoreAudit.averageAdjustment >= 0 ? '+' : ''}{scoreAudit.averageAdjustment}점
+        </span>
+      </div>
       {/* 색상 조합 필터 pills */}
       <div className="color-combo-tabs">
         <button
@@ -2214,7 +2228,7 @@ function RecommendationList({ recommendations, onSave }: { recommendations: Outf
           >
             <span className="pill-swatch" style={{ background: group.topHex }} />
             <span className="pill-swatch" style={{ background: group.bottomHex }} />
-            {HUE_BUCKET_KO[group.topBucket]} × {HUE_BUCKET_KO[group.bottomBucket]}
+            {group.label}
             <span className="pill-count">{group.outfits.length}</span>
           </button>
         ))}
