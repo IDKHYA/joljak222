@@ -733,6 +733,7 @@ function App() {
       weatherBand: outfit.weatherBand,
       mode: outfit.mode,
       savedAt: new Date().toISOString(),
+      explanationBullets: outfit.explanationBullets,
       dailyLookState: buildDailyLookState(outfit.items),
     }, ...savedOutfits];
     setSavedOutfits(next);
@@ -784,6 +785,10 @@ function App() {
   const openDailyLookMaker = (id: string) => {
     setActiveTryOnOutfitId(id);
     navigate({ page: 'tryon' });
+  };
+
+  const openWardrobeFromDailyLook = (wardrobeId: string) => {
+    navigate({ page: 'wardrobe', selectedWardrobeId: wardrobeId, wardrobeView: 'detail' });
   };
 
   const ensureDailyLookCutouts = async (itemIds: string[]) => {
@@ -1131,7 +1136,7 @@ function App() {
             )
           )}
 
-          {page === 'saved' && <SavedOutfits saved={savedOutfits} items={dailyLookSourceItems} onDelete={deleteSavedOutfit} onMakeDailyLook={openDailyLookMaker} onCreateDailyLook={createBlankDailyLook} />}
+          {page === 'saved' && <SavedOutfits saved={savedOutfits} items={dailyLookSourceItems} wardrobes={wardrobes} onDelete={deleteSavedOutfit} onMakeDailyLook={openDailyLookMaker} onCreateDailyLook={createBlankDailyLook} onOpenWardrobe={openWardrobeFromDailyLook} />}
           {page === 'tryon' && <TryOn saved={savedOutfits} items={dailyLookSourceItems} wardrobes={wardrobes} activeOutfitId={activeTryOnOutfitId} onSaveDailyLook={updateSavedOutfitDailyLook} onEnsureCutouts={ensureDailyLookCutouts} onBack={() => goPage('saved')} />}
           {page === 'settings' && (
             <section className="page-stack">
@@ -2272,17 +2277,93 @@ function DailyLookBoardPreview({ outfit, items }: { outfit: SavedOutfit; items: 
 }
 
 // 저장된 추천 코디 목록입니다. 삭제, 가상착용 만들기 진입을 담당합니다.
-function SavedOutfits({ saved, items, onDelete, onMakeDailyLook, onCreateDailyLook }: { saved: SavedOutfit[]; items: ScoredClothingItem[]; onDelete: (id: string) => void; onMakeDailyLook: (id: string) => void; onCreateDailyLook: () => void }) {
+type SavedOutfitSort = 'recent' | 'score' | 'weather' | 'title';
+
+const WEATHER_SORT_ORDER: Record<RecommendationWeatherBand, number> = {
+  '상관없음': 0,
+  '4도 이하': 1,
+  '5~8도': 2,
+  '9~11도': 3,
+  '12~16도': 4,
+  '17~19도': 5,
+  '20~22도': 6,
+  '23~27도': 7,
+  '28도 이상': 8,
+};
+
+// 저장된 추천 코디 목록입니다. 검색, 정렬, 삭제, 데일리룩 만들기 진입을 담당합니다.
+function SavedOutfits({
+  saved,
+  items,
+  wardrobes,
+  onDelete,
+  onMakeDailyLook,
+  onCreateDailyLook,
+  onOpenWardrobe,
+}: {
+  saved: SavedOutfit[];
+  items: ScoredClothingItem[];
+  wardrobes: Wardrobe[];
+  onDelete: (id: string) => void;
+  onMakeDailyLook: (id: string) => void;
+  onCreateDailyLook: () => void;
+  onOpenWardrobe: (wardrobeId: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<SavedOutfitSort>('recent');
+  const wardrobeNameById = useMemo(() => new Map(wardrobes.map((wardrobe) => [wardrobe.id, wardrobe.name])), [wardrobes]);
+  const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
+  const savedWithItems = useMemo(() => saved.map((outfit) => ({
+    outfit,
+    outfitItems: outfit.itemIds.map((id) => itemById.get(id)).filter(Boolean) as ScoredClothingItem[],
+  })), [itemById, saved]);
+  const filteredSaved = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const filtered = normalizedQuery
+      ? savedWithItems.filter(({ outfit, outfitItems }) => {
+        const haystack = [
+          outfit.title,
+          outfit.mode,
+          outfit.weatherBand,
+          String(outfit.score),
+          ...outfitItems.flatMap((item) => [item.type, item.color, item.brand, item.category, wardrobeNameById.get(item.wardrobeId) ?? '']),
+        ].join(' ').toLowerCase();
+        return haystack.includes(normalizedQuery);
+      })
+      : savedWithItems;
+
+    return [...filtered].sort((left, right) => {
+      if (sort === 'score') return right.outfit.score - left.outfit.score;
+      if (sort === 'weather') return WEATHER_SORT_ORDER[left.outfit.weatherBand] - WEATHER_SORT_ORDER[right.outfit.weatherBand];
+      if (sort === 'title') return left.outfit.title.localeCompare(right.outfit.title, 'ko-KR');
+      return new Date(right.outfit.savedAt).getTime() - new Date(left.outfit.savedAt).getTime();
+    });
+  }, [query, savedWithItems, sort, wardrobeNameById]);
+
   return (
     <section className="page-stack">
       <div className="dailylook-list-title">
         <PageTitle title="데일리룩" description="추천 화면에서 저장한 조합을 모아보고, 데일리룩 만들기에서 하나의 룩 이미지로 편집합니다." icon={<Bookmark />} />
         <button className="blue-button" type="button" onClick={onCreateDailyLook}><Plus size={16} /> 데일리룩 만들기</button>
       </div>
+      <section className="saved-outfit-controls panel">
+        <label className="saved-outfit-search">
+          <Search size={15} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="코디명, 옷 종류, 색상, 옷장 검색" />
+        </label>
+        <label>
+          정렬
+          <select value={sort} onChange={(event) => setSort(event.target.value as SavedOutfitSort)}>
+            <option value="recent">최근순</option>
+            <option value="score">점수순</option>
+            <option value="weather">날씨순</option>
+            <option value="title">이름순</option>
+          </select>
+        </label>
+      </section>
       {saved.length === 0 ? <EmptyState title="저장된 데일리룩이 없습니다." description="추천에서 마음에 드는 조합을 저장하면 여기에 표시됩니다." /> : (
         <div className="outfit-grid saved-outfit-grid">
-          {saved.map((outfit) => {
-            const outfitItems = outfit.itemIds.map((id) => items.find((item) => item.id === id)).filter(Boolean) as ScoredClothingItem[];
+          {filteredSaved.map(({ outfit, outfitItems }) => {
             const isConfirmed = Boolean(outfit.dailyLookState?.isConfirmed);
             return (
               <article className="panel outfit-card saved-outfit-card" key={outfit.id}>
@@ -2299,11 +2380,22 @@ function SavedOutfits({ saved, items, onDelete, onMakeDailyLook, onCreateDailyLo
                 {outfit.dailyLookState?.confirmedImage ? <img className="dailylook-confirmed-thumb" src={outfit.dailyLookState.confirmedImage} alt={`${outfit.title} 완성 이미지`} /> : <DailyLookBoardPreview outfit={outfit} items={items} />}
                 <details className="saved-outfit-detail">
                   <summary>자세히 보기</summary>
+                  {outfit.explanationBullets?.length ? (
+                    <ul className="saved-outfit-reasons">
+                      {outfit.explanationBullets.map((reason) => <li key={reason}>{reason}</li>)}
+                    </ul>
+                  ) : <p className="saved-outfit-empty-reason">직접 만든 데일리룩입니다. 아이템을 추가하고 저장하면 조합을 다시 확인할 수 있습니다.</p>}
                   <div className="saved-item-preview-grid">
                     {outfitItems.map((item) => (
                       <figure key={item.id}>
                         <img src={clothingDisplayImage(item)} alt={item.type} />
-                      <figcaption><strong>{item.type}</strong><small>{displayClothingColor(item)} · {MATERIAL_LABELS[item.material ?? 'unknown']} · {PATTERN_LABELS[normalizePatternType(item.patternType)]}</small></figcaption>
+                        <figcaption>
+                          <strong>{item.type}</strong>
+                          <small>{displayClothingColor(item)} · {MATERIAL_LABELS[item.material ?? 'unknown']} · {PATTERN_LABELS[normalizePatternType(item.patternType)]}</small>
+                          <button type="button" onClick={() => onOpenWardrobe(item.wardrobeId)}>
+                            {wardrobeNameById.get(item.wardrobeId) ?? '옷장'}에서 보기
+                          </button>
+                        </figcaption>
                       </figure>
                     ))}
                   </div>
@@ -2312,6 +2404,7 @@ function SavedOutfits({ saved, items, onDelete, onMakeDailyLook, onCreateDailyLo
               </article>
             );
           })}
+          {filteredSaved.length === 0 && <EmptyState title="검색 결과가 없습니다." description="검색어를 줄이거나 다른 정렬 기준을 선택해 주세요." />}
         </div>
       )}
     </section>
@@ -2350,7 +2443,7 @@ function TryOn({ saved, items, wardrobes, activeOutfitId, onSaveDailyLook, onEns
     setState(nextState);
     setSelectedLayerId(nextState.layers[0]?.itemId ?? null);
     setSelectedTextId(nextState.textLayers?.[0]?.id ?? null);
-  }, [itemLookup, selectedOutfit?.id, selectedOutfit?.dailyLookState]);
+  }, [selectedOutfit?.id]);
 
   useEffect(() => {
     const missingItems = dailyLookItems.filter((item) => !item.cutoutImageUrl || item.segmentation?.version !== CUTOUT_VERSION);
@@ -2436,16 +2529,20 @@ function TryOn({ saved, items, wardrobes, activeOutfitId, onSaveDailyLook, onEns
   const addDailyLookItem = (itemId: string) => {
     const nextItemIds = Array.from(new Set([...draftItemIds, itemId]));
     const nextItems = nextItemIds.map((id) => itemLookup.get(id)).filter(Boolean) as ScoredClothingItem[];
+    const nextState = buildDailyLookState(nextItems, state);
     setDraftItemIds(nextItemIds);
-    setState((prev) => buildDailyLookState(nextItems, prev));
+    setState(nextState);
+    onSaveDailyLook(selectedOutfit.id, nextState, nextItemIds);
     setItemPickerOpen(false);
   };
 
   const batchAddDailyLookItems = () => {
     const nextItemIds = Array.from(new Set([...draftItemIds, ...pickerSelectedIds]));
     const nextItems = nextItemIds.map((id) => itemLookup.get(id)).filter(Boolean) as ScoredClothingItem[];
+    const nextState = buildDailyLookState(nextItems, state);
     setDraftItemIds(nextItemIds);
-    setState((prev) => buildDailyLookState(nextItems, prev));
+    setState(nextState);
+    onSaveDailyLook(selectedOutfit.id, nextState, nextItemIds);
     setPickerSelectedIds(new Set());
     setItemPickerOpen(false);
   };

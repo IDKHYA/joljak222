@@ -158,6 +158,7 @@ export interface SavedOutfit {
   weatherBand: RecommendationWeatherBand;
   mode: RecommendationMode;
   savedAt: string;
+  explanationBullets?: string[];
   dailyLookState?: DailyLookState;
 }
 

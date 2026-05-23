@@ -344,10 +344,11 @@ function describeWeatherFit(items: ScoredClothingItem[], weatherScore: number, b
 function describeHarmonyFit(items: ScoredClothingItem[], harmonyType: string, harmonyScore: number): string {
   const top = items.find((item) => item.category === '상의');
   const bottom = items.find((item) => item.category === '하의');
+  const roundedScore = Math.round(harmonyScore);
   const angleText = top && bottom && !top.isNeutral && !bottom.isNeutral
     ? ` 색상 각도 차이는 약 ${Math.round(hueAngleDiff(top.representativeHex, bottom.representativeHex))}도입니다.`
     : '';
-  return `${HARMONY_REASON_KO[harmonyType] ?? '색상 조합을 기준으로 계산했습니다.'} 조화 점수는 ${harmonyScore}점입니다.${angleText}`;
+  return `${HARMONY_REASON_KO[harmonyType] ?? '색상 조합을 기준으로 계산했습니다.'} 조화 점수는 ${roundedScore}점입니다.${angleText}`;
 }
 
 function buildExplanationBullets(
