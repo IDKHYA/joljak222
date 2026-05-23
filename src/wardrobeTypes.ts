@@ -136,6 +136,13 @@ export interface OutfitRecommendation {
   stabilityScore: number;
   items: ScoredClothingItem[];
   reason: string;
+  scoreBreakdown: {
+    personal: number;
+    weather: number;
+    harmony: number;
+    stability: number;
+  };
+  explanationBullets: string[];
   weatherBand: RecommendationWeatherBand;
   mode: RecommendationMode;
 }

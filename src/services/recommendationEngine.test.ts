@@ -108,6 +108,13 @@ describe('buildRecommendations', () => {
     expect(result).toHaveLength(1);
     expect(result[0].items).toHaveLength(2);
     expect(result[0].score).toBeGreaterThan(0);
+    expect(result[0].scoreBreakdown).toEqual({
+      personal: expect.any(Number),
+      weather: expect.any(Number),
+      harmony: expect.any(Number),
+      stability: expect.any(Number),
+    });
+    expect(result[0].explanationBullets).toHaveLength(3);
   });
   it('추천제외/세탁중 상태의 의류는 후보에서 빠진다', () => {
     const items = [

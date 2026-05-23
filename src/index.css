@@ -2377,6 +2377,80 @@ label {
   gap: 4px;
 }
 
+.recommendation-reason-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  background: #F9FAFB;
+}
+
+.reason-score-bars {
+  display: grid;
+  gap: 7px;
+}
+
+.reason-score-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #4B5563;
+}
+
+.reason-score-row span {
+  font-weight: 700;
+}
+
+.reason-score-row strong {
+  text-align: right;
+  color: #111827;
+  font-size: 12px;
+}
+
+.reason-score-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #E5E7EB;
+}
+
+.reason-score-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #111827;
+}
+
+.reason-bullet-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reason-bullet-list li {
+  position: relative;
+  padding-left: 12px;
+  color: #374151;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.reason-bullet-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #111827;
+}
+
 .grade-S { color: #7C3AED; }
 .grade-A { color: #2563EB; }
 .grade-B { color: #059669; }

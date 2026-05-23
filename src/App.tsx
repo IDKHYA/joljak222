@@ -2159,6 +2159,29 @@ function OutfitCard({ outfit, onSave }: { key?: React.Key; outfit: OutfitRecomme
         <span title={`색상 조화도 ${outfit.harmonyScore}점`}>조화 <strong className={`grade-${scoreGrade(outfit.harmonyScore)}`}>{scoreGrade(outfit.harmonyScore)}</strong></span>
         <span title={`날씨 적합도 ${outfit.weatherScore}점`}>날씨 <strong className={`grade-${scoreGrade(outfit.weatherScore)}`}>{scoreGrade(outfit.weatherScore)}</strong></span>
       </div>
+      <div className="recommendation-reason-panel">
+        <div className="reason-score-bars" aria-label="추천 점수 구성">
+          {[
+            ['퍼컬', outfit.scoreBreakdown.personal, outfit.personalScore],
+            ['날씨', outfit.scoreBreakdown.weather, outfit.weatherScore],
+            ['조화', outfit.scoreBreakdown.harmony, outfit.harmonyScore],
+            ['안정', outfit.scoreBreakdown.stability, outfit.stabilityScore],
+          ].map(([label, contribution, rawScore]) => (
+            <div className="reason-score-row" key={label}>
+              <span>{label}</span>
+              <div className="reason-score-track">
+                <i style={{ width: `${Math.max(6, Number(rawScore))}%` }} />
+              </div>
+              <strong>{contribution}</strong>
+            </div>
+          ))}
+        </div>
+        <ul className="reason-bullet-list">
+          {outfit.explanationBullets.map((bullet) => (
+            <li key={bullet}>{bullet}</li>
+          ))}
+        </ul>
+      </div>
       <button className="line-button" onClick={() => onSave(outfit)}>데일리룩 저장</button>
     </article>
   );

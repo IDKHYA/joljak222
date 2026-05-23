@@ -273,6 +273,69 @@ export function scoreGrade(score: number): string {
   return 'D';
 }
 
+const SCORE_WEIGHTS = {
+  personal: 0.38,
+  weather: 0.22,
+  harmony: 0.28,
+  stability: 0.12,
+} as const;
+
+const HARMONY_REASON_KO: Record<string, string> = {
+  monochromatic: '상하의 색상 차이가 작아 차분한 톤온톤 조합입니다.',
+  analogous: '상하의 색상이 가까운 범위에 있어 자연스럽게 이어지는 조합입니다.',
+  tension: '상하의 색상 차이가 커서 포인트가 생기는 조합입니다.',
+  triadic: '색상 차이가 뚜렷하지만 직접적인 보색 충돌은 피한 조합입니다.',
+  complementary: '상하의 색상 차이가 커서 대비가 분명한 조합입니다.',
+  neutral: '중립색이 포함되어 다른 색을 받쳐 주는 안정적인 조합입니다.',
+};
+
+function describePersonalFit(items: ScoredClothingItem[], personalScore: number, result: FinalResult | null): string {
+  const scoredItems = items.filter((item) => item.personalFitScore !== null);
+  if (!result || scoredItems.length === 0) {
+    return '퍼스널컬러 진단 결과가 없어 기본 적합도 기준으로 계산했습니다.';
+  }
+
+  const bestItem = scoredItems.reduce((best, item) =>
+    (item.personalFitScore ?? 0) > (best.personalFitScore ?? 0) ? item : best,
+  );
+  const avoidCount = scoredItems.filter((item) => item.avoidRisk).length;
+  const seasonName = result.seasonTop1 || SEASON_LABELS[result.seasonTop1Id];
+  const avoidText = avoidCount > 0 ? ` 회피색에 가까운 색이 ${avoidCount}개 있어 감점이 반영됐습니다.` : ' 회피색 근접 감점은 없습니다.';
+  return `${seasonName} 기준 평균 ${personalScore}점입니다. ${bestItem.type}의 색상 적합도가 가장 높습니다.${avoidText}`;
+}
+
+function describeWeatherFit(items: ScoredClothingItem[], weatherScore: number, band: RecommendationWeatherBand): string {
+  const unavailableCount = items.filter((item) => item.availabilityStatus !== '보유중').length;
+  const bandText = band === '상관없음' ? '날씨 조건을 고정하지 않고' : `${band} 날씨 조건에서`;
+  const stateText = unavailableCount > 0 ? ` 착용 상태가 낮은 항목 ${unavailableCount}개가 있어 점수가 조정됐습니다.` : ' 모두 바로 입을 수 있는 상태입니다.';
+  return `${bandText} 날씨 적합도는 ${weatherScore}점입니다.${stateText}`;
+}
+
+function describeHarmonyFit(items: ScoredClothingItem[], harmonyType: string, harmonyScore: number): string {
+  const top = items.find((item) => item.category === '상의');
+  const bottom = items.find((item) => item.category === '하의');
+  const angleText = top && bottom && !top.isNeutral && !bottom.isNeutral
+    ? ` 색상 각도 차이는 약 ${Math.round(hueAngleDiff(top.representativeHex, bottom.representativeHex))}도입니다.`
+    : '';
+  return `${HARMONY_REASON_KO[harmonyType] ?? '색상 조합을 기준으로 계산했습니다.'} 조화 점수는 ${harmonyScore}점입니다.${angleText}`;
+}
+
+function buildExplanationBullets(
+  items: ScoredClothingItem[],
+  personalScore: number,
+  weatherScore: number,
+  harmonyScore: number,
+  harmonyType: string,
+  band: RecommendationWeatherBand,
+  result: FinalResult | null,
+): string[] {
+  return [
+    describePersonalFit(items, personalScore, result),
+    describeHarmonyFit(items, harmonyType, harmonyScore),
+    describeWeatherFit(items, weatherScore, band),
+  ];
+}
+
 // 코디 내 패턴 조합 페널티를 계산합니다. 그래픽+솔리드, 같은 패턴 중복은 감점됩니다.
 export function calculatePatternPenalty(items: ScoredClothingItem[]): number {
   const patterns = items.map((i) => i.patternType).filter((p) => p !== 'solid');
@@ -341,7 +404,13 @@ export function buildRecommendations(items: ScoredClothingItem[], band: Recommen
         const weatherScore = Math.round(outfitItems.reduce((sum, item) => sum + getWeatherScore(item, band), 0) / outfitItems.length);
         const harmonyScore = calculateHarmonyScore(outfitItems, result);
         const stabilityScore = outfitItems.every((item) => item.availabilityStatus === '보유중') ? 92 : 68;
-        const score = Math.round(personalScore * 0.38 + weatherScore * 0.22 + harmonyScore * 0.28 + stabilityScore * 0.12);
+        const scoreBreakdown = {
+          personal: Math.round(personalScore * SCORE_WEIGHTS.personal),
+          weather: Math.round(weatherScore * SCORE_WEIGHTS.weather),
+          harmony: Math.round(harmonyScore * SCORE_WEIGHTS.harmony),
+          stability: Math.round(stabilityScore * SCORE_WEIGHTS.stability),
+        };
+        const score = scoreBreakdown.personal + scoreBreakdown.weather + scoreBreakdown.harmony + scoreBreakdown.stability;
         const harmonyType = getHarmonyType(outfitItems);
         outfits.push({
           id: `${top.id}-${bottom.id}-${outer?.id ?? 'noouter'}`,
@@ -354,6 +423,8 @@ export function buildRecommendations(items: ScoredClothingItem[], band: Recommen
           stabilityScore,
           items: outfitItems,
           reason: band === '상관없음' ? '퍼스널 컬러 적합도와 코디 안정성을 우선 반영했습니다.' : `퍼스널 컬러 적합도와 ${band} 날씨 조건을 함께 반영했습니다.`,
+          scoreBreakdown,
+          explanationBullets: buildExplanationBullets(outfitItems, personalScore, weatherScore, harmonyScore, harmonyType, band, result),
           weatherBand: band,
           mode,
         });
