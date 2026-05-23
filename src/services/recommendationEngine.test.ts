@@ -4,6 +4,7 @@ import {
   buildRecommendations,
   calculatePatternPenalty,
   classifyHarmonyType,
+  groupByColorCombo,
   gradeFromScore,
   hueAngleDiff,
   scoreItemForPersonalColor,
@@ -122,5 +123,33 @@ describe('buildRecommendations', () => {
       mockItem({ category: '하의' }),
     ];
     expect(buildRecommendations(items, '상관없음', '데일리', null)).toEqual([]);
+  });
+});
+
+describe('groupByColorCombo', () => {
+  it('색상 조합 pill은 실제 첫 아이템 색상이 아니라 버킷 대표색을 사용한다', () => {
+    const top = mockItem({ category: '상의', representativeHex: '#F3F4F6' });
+    const bottom = mockItem({ category: '하의', representativeHex: '#1D4ED8' });
+    const groups = groupByColorCombo([{
+      id: 'outfit-1',
+      title: '테스트 코디',
+      harmonyType: 'neutral',
+      score: 80,
+      personalScore: 70,
+      harmonyScore: 85,
+      weatherScore: 72,
+      stabilityScore: 92,
+      items: [top, bottom],
+      reason: '',
+      scoreBreakdown: { personal: 27, weather: 16, harmony: 24, stability: 11 },
+      explanationBullets: [],
+      weatherBand: '상관없음',
+      mode: '데일리',
+    }]);
+
+    expect(groups[0].topBucket).toBe('neutral');
+    expect(groups[0].bottomBucket).toBe('blue');
+    expect(groups[0].topBucketHex).toBe('#64748B');
+    expect(groups[0].bottomBucketHex).toBe('#3B82F6');
   });
 });
