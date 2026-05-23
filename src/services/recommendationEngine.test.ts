@@ -2,11 +2,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildRecommendations,
+  calculateHarmonyScore,
   calculatePatternPenalty,
   classifyHarmonyType,
   groupByColorCombo,
   gradeFromScore,
   hueAngleDiff,
+  scorePaletteDistance,
   scoreItemForPersonalColor,
 } from './recommendationEngine';
 import type { ClothingItem, ScoredClothingItem } from '../wardrobeTypes';
@@ -54,6 +56,16 @@ describe('gradeFromScore', () => {
   });
 });
 
+describe('scorePaletteDistance', () => {
+  it('Delta E 거리 구간을 기준으로 점수를 완만하게 낮춘다', () => {
+    expect(scorePaletteDistance(0)).toBe(100);
+    expect(Math.round(scorePaletteDistance(5))).toBe(96);
+    expect(Math.round(scorePaletteDistance(12))).toBe(86);
+    expect(Math.round(scorePaletteDistance(22))).toBe(70);
+    expect(Math.round(scorePaletteDistance(35))).toBe(45);
+  });
+});
+
 describe('classifyHarmonyType', () => {
   it('Itten 색상환 각도 구간을 조화 유형으로 분류한다', () => {
     expect(classifyHarmonyType(0)).toBe('monochromatic');
@@ -83,6 +95,34 @@ describe('calculatePatternPenalty', () => {
     expect(calculatePatternPenalty([mockItem({ patternType: 'graphic' }), mockItem({ patternType: 'stripe' })])).toBe(22);
     expect(calculatePatternPenalty([mockItem({ patternType: 'stripe' }), mockItem({ patternType: 'stripe' })])).toBe(14);
     expect(calculatePatternPenalty([mockItem({ patternType: 'stripe' }), mockItem({ patternType: 'plaid' })])).toBe(8);
+  });
+});
+
+describe('calculateHarmonyScore', () => {
+  it('색상 각도만 같아도 명도 대비가 너무 낮으면 조화 점수를 낮춘다', () => {
+    const lowContrast = calculateHarmonyScore([
+      mockItem({ category: '상의', representativeHex: '#4B5563' }),
+      mockItem({ category: '하의', representativeHex: '#52525B' }),
+    ], null);
+    const balancedContrast = calculateHarmonyScore([
+      mockItem({ category: '상의', representativeHex: '#FCA5A5' }),
+      mockItem({ category: '하의', representativeHex: '#7F1D1D' }),
+    ], null);
+
+    expect(balancedContrast).toBeGreaterThan(lowContrast);
+  });
+
+  it('고채도 포인트 색이 둘 다 강하면 조화 점수를 보수적으로 조정한다', () => {
+    const doublePoint = calculateHarmonyScore([
+      mockItem({ category: '상의', representativeHex: '#FF0000' }),
+      mockItem({ category: '하의', representativeHex: '#0000FF' }),
+    ], null);
+    const stabilized = calculateHarmonyScore([
+      mockItem({ category: '상의', representativeHex: '#FF0000' }),
+      mockItem({ category: '하의', representativeHex: '#111827', isNeutral: true }),
+    ], null);
+
+    expect(stabilized).toBeGreaterThan(doublePoint);
   });
 });
 

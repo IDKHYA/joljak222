@@ -28,7 +28,7 @@ import type {
   ScoredClothingItem,
 } from '../wardrobeTypes';
 import { SEASON_LABELS, WEATHER_BAND_ORDER, WEATHER_RULES } from '../wardrobeConstants';
-import { deltaE2000, hexToRgb, rgbToHsl, rgbToLab } from './colorUtils';
+import { clamp, deltaE2000, hexToRgb, rgbToHsl, rgbToLab } from './colorUtils';
 import type { LabColor } from './colorUtils';
 
 // 선택된 기온 구간에 맞는 의류 키워드를 가져옵니다.
@@ -59,6 +59,14 @@ export function gradeFromScore(score: number): FitGrade {
   return 'CHECK';
 }
 
+export function scorePaletteDistance(distance: number): number {
+  if (distance <= 5) return 100 - distance * 0.8;
+  if (distance <= 12) return 96 - (distance - 5) * (10 / 7);
+  if (distance <= 22) return 86 - (distance - 12) * 1.6;
+  if (distance <= 35) return 70 - (distance - 22) * (25 / 13);
+  return Math.max(0, 45 - (distance - 35) * 1.3);
+}
+
 // 단일 HEX에 대해 팔레트 점수와 회피 페널티를 계산합니다.
 export function scoreSingleHex(
   hex: string,
@@ -69,7 +77,7 @@ export function scoreSingleHex(
   const paletteDistance = Math.min(...paletteLabs.map((p) => deltaE2000(lab, p)));
   const avoidDistance = avoidLabs.length ? Math.min(...avoidLabs.map((a) => deltaE2000(lab, a))) : 100;
   return {
-    paletteScore: Math.max(0, 100 - paletteDistance * 4.5),
+    paletteScore: scorePaletteDistance(paletteDistance),
     avoidPenalty: avoidDistance < 10 ? 22 : avoidDistance < 16 ? 10 : 0,
   };
 }
@@ -107,7 +115,7 @@ export function scoreItemForPersonalColor(item: ClothingItem, result: FinalResul
     weightedAvoidPenalty += avoidPenalty * w;
   }
 
-  const utilityBonus = item.isNeutral || item.isDenim ? 8 : 0;
+  const utilityBonus = item.isNeutral || item.isDenim ? 3 : 0;
   const score = Math.max(0, Math.min(100, Math.round(weightedPaletteScore + utilityBonus - weightedAvoidPenalty)));
 
   return {
@@ -345,6 +353,42 @@ export function calculatePatternPenalty(items: ScoredClothingItem[]): number {
   return 8;
 }
 
+function colorHarmonyFeatures(hex: string) {
+  const hsl = rgbToHsl(hexToRgb(hex));
+  return {
+    lightness: hsl.l,
+    saturation: hsl.s,
+  };
+}
+
+function calculateLightnessBalanceScore(topHex: string, bottomHex: string): number {
+  const top = colorHarmonyFeatures(topHex);
+  const bottom = colorHarmonyFeatures(bottomHex);
+  const diff = Math.abs(top.lightness - bottom.lightness);
+  const base = 100 - Math.abs(diff - 0.22) * 120;
+  const lowContrastPenalty = diff < 0.08 ? 28 : 0;
+  const highContrastPenalty = diff > 0.55 ? 10 : 0;
+  return clamp(base - lowContrastPenalty - highContrastPenalty, 45, 100);
+}
+
+function calculateSaturationBalanceScore(topHex: string, bottomHex: string): number {
+  const top = colorHarmonyFeatures(topHex);
+  const bottom = colorHarmonyFeatures(bottomHex);
+  const diff = Math.abs(top.saturation - bottom.saturation);
+  const doublePointPenalty = top.saturation > 0.65 && bottom.saturation > 0.65 ? 12 : 0;
+  const flatPenalty = top.saturation < 0.12 && bottom.saturation < 0.12 ? 6 : 0;
+  return clamp(100 - diff * 45 - doublePointPenalty - flatPenalty, 45, 100);
+}
+
+function calculateUtilityStabilityBonus(items: ScoredClothingItem[]): number {
+  const hasNeutral = items.some((item) => item.isNeutral);
+  const hasDenim = items.some((item) => item.isDenim);
+  const hasColorPoint = items.some((item) => colorHarmonyFeatures(item.representativeHex).saturation > 0.45);
+  if (hasColorPoint && (hasNeutral || hasDenim)) return 6;
+  if (hasNeutral || hasDenim) return 3;
+  return 0;
+}
+
 // Itten 색상 이론 기반 hue 각도로 조화 유형을 분류하고, 퍼스널컬러 시즌의 대비 선호도로 점수를 조정합니다.
 export function calculateHarmonyScore(items: ScoredClothingItem[], result: FinalResult | null): number {
   const top = items.find((i) => i.category === '상의');
@@ -354,13 +398,12 @@ export function calculateHarmonyScore(items: ScoredClothingItem[], result: Final
   const patternPenalty = calculatePatternPenalty(items);
 
   // 중성색은 hue가 무의미하므로 별도 처리합니다.
-  if (top.isNeutral || bottom.isNeutral) {
-    return Math.min(100, Math.max(0, 85 - patternPenalty));
-  }
-
   const angleDiff = hueAngleDiff(top.representativeHex, bottom.representativeHex);
-  const harmonyType = classifyHarmonyType(angleDiff);
-  let score = HARMONY_BASE_SCORES[harmonyType];
+  const harmonyType = top.isNeutral || bottom.isNeutral ? 'neutral' : classifyHarmonyType(angleDiff);
+  const hueScore = HARMONY_BASE_SCORES[harmonyType] ?? 85;
+  const lightnessScore = calculateLightnessBalanceScore(top.representativeHex, bottom.representativeHex);
+  const saturationScore = calculateSaturationBalanceScore(top.representativeHex, bottom.representativeHex);
+  let score = hueScore * 0.5 + lightnessScore * 0.3 + saturationScore * 0.2 + calculateUtilityStabilityBonus(items);
 
   // 시즌 대비 선호도에 따라 타입별 가산/감산을 적용합니다.
   const preferredContrast = result ? SEASON_PROFILES[result.seasonTop1Id].traits.contrast : 0;
