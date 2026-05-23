@@ -127,8 +127,8 @@ describe('buildRecommendations', () => {
 });
 
 describe('groupByColorCombo', () => {
-  it('색상 조합 pill은 실제 첫 아이템 색상이 아니라 버킷 대표색을 사용한다', () => {
-    const top = mockItem({ category: '상의', representativeHex: '#F3F4F6' });
+  it('저채도 카키색은 무채색이 아니라 hue 기준 색상군으로 분류한다', () => {
+    const top = mockItem({ category: '상의', representativeHex: '#6F6F5E' });
     const bottom = mockItem({ category: '하의', representativeHex: '#1D4ED8' });
     const groups = groupByColorCombo([{
       id: 'outfit-1',
@@ -147,9 +147,9 @@ describe('groupByColorCombo', () => {
       mode: '데일리',
     }]);
 
-    expect(groups[0].topBucket).toBe('neutral');
+    expect(groups[0].topBucket).toBe('yellow');
     expect(groups[0].bottomBucket).toBe('blue');
-    expect(groups[0].topBucketHex).toBe('#64748B');
-    expect(groups[0].bottomBucketHex).toBe('#3B82F6');
+    expect(groups[0].topHex).toBe('#6F6F5E');
+    expect(groups[0].bottomHex).toBe('#1D4ED8');
   });
 });

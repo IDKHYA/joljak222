@@ -218,22 +218,10 @@ export const HUE_BUCKET_KO: Record<string, string> = {
   cyan: '청록', blue: '파랑', purple: '보라', pink: '분홍', neutral: '무채색',
 };
 
-export const HUE_BUCKET_HEX: Record<string, string> = {
-  red: '#EF4444',
-  orange: '#F97316',
-  yellow: '#EAB308',
-  green: '#22C55E',
-  cyan: '#06B6D4',
-  blue: '#3B82F6',
-  purple: '#8B5CF6',
-  pink: '#EC4899',
-  neutral: '#64748B',
-};
-
 // hex 색상을 hue 버킷으로 분류합니다. 채도 0.15 미만은 무채색으로 처리합니다.
 export function getHueBucket(hex: string): string {
   const hsl = rgbToHsl(hexToRgb(hex));
-  if (hsl.s < 0.15) return 'neutral';
+  if (hsl.s < 0.08) return 'neutral';
   const h = hsl.h * 360;
   if (h < 20 || h >= 340) return 'red';
   if (h < 45) return 'orange';
@@ -251,8 +239,6 @@ export interface ColorGroup {
   bottomBucket: string;
   topHex: string;
   bottomHex: string;
-  topBucketHex: string;
-  bottomBucketHex: string;
   outfits: OutfitRecommendation[];
 }
 
@@ -270,8 +256,6 @@ export function groupByColorCombo(outfits: OutfitRecommendation[]): ColorGroup[]
         key, topBucket: tb, bottomBucket: bb,
         topHex: top?.representativeHex ?? '#888',
         bottomHex: bottom?.representativeHex ?? '#888',
-        topBucketHex: HUE_BUCKET_HEX[tb] ?? HUE_BUCKET_HEX.neutral,
-        bottomBucketHex: HUE_BUCKET_HEX[bb] ?? HUE_BUCKET_HEX.neutral,
         outfits: [],
       });
     }

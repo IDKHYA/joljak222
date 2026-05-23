@@ -2212,8 +2212,8 @@ function RecommendationList({ recommendations, onSave }: { recommendations: Outf
             className={`color-combo-pill${selectedKey === group.key ? ' active' : ''}`}
             onClick={() => setSelectedKey(group.key)}
           >
-            <span className="pill-swatch" style={{ background: group.topBucketHex }} />
-            <span className="pill-swatch" style={{ background: group.bottomBucketHex }} />
+            <span className="pill-swatch" style={{ background: group.topHex }} />
+            <span className="pill-swatch" style={{ background: group.bottomHex }} />
             {HUE_BUCKET_KO[group.topBucket]} × {HUE_BUCKET_KO[group.bottomBucket]}
             <span className="pill-count">{group.outfits.length}</span>
           </button>
