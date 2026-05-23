@@ -16,6 +16,7 @@ import type {
   MaterialType,
   PatternType,
   RecommendationMode,
+  SeasonTag,
 } from './wardrobeTypes';
 
 export const STORAGE_KEYS = {
@@ -30,7 +31,7 @@ export const CATEGORY_OPTIONS: ClothingCategory[] = ['상의', '하의', '아우
 export const CATALOG_TABS: Array<'전체' | ClothingCategory> = ['전체', '아우터', '상의', '하의', '신발', '액세서리'];
 export const RECOMMENDATION_MODES: RecommendationMode[] = ['데일리', '출근', '데이트', '발표'];
 export const AVAILABILITY_OPTIONS: AvailabilityStatus[] = ['보유중', '세탁중', '보관중', '추천제외'];
-export const SEASON_TAGS = ['봄/가을', '여름', '겨울', '사계절'];
+export const SEASON_TAGS: SeasonTag[] = ['봄/가을', '여름', '겨울', '사계절'];
 export const DAILY_LOOK_CANVAS = { width: 1080, height: 1440 };
 export const CUTOUT_VERSION = 'hard-alpha-v3';
 

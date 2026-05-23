@@ -12,8 +12,9 @@
  * 5. 날씨 구간, 보유 상태, 색상 조화도, 퍼스널컬러 점수를 합산해 코디 추천을 생성합니다.
  * 6. 추천 결과를 SavedOutfit으로 저장하고, Try On/데일리룩 레이어 구성으로 확장합니다.
  *
- * 현재는 MVP 속도를 위해 여러 도메인 로직과 화면 컴포넌트가 이 파일에 모여 있습니다.
- * 장기적으로는 wardrobe service, recommendation engine, saved outfit store, page components로 분리하면 유지보수성이 좋아집니다.
+ * 의류/추천 도메인은 별도 모듈로 분리되어 있습니다.
+ * 타입은 wardrobeTypes.ts, 상수는 wardrobeConstants.ts, 추천 엔진은 services/recommendationEngine.ts에 있으며,
+ * 이 파일에는 화면 컴포넌트, 라우팅, localStorage 영속 상태, 가상착용(데일리룩) 로직이 남아 있습니다.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -72,6 +73,7 @@ import type {
   RecommendationWeatherBand,
   SavedOutfit,
   ScoredClothingItem,
+  SeasonTag,
   Wardrobe,
   WardrobeView,
 } from './wardrobeTypes';
@@ -408,7 +410,12 @@ function buildColorMeta(category: ClothingCategory, type: string, color: string,
 
 // 의류 타입/카테고리로 착용 계절 태그를 추정합니다.
 // 이 값은 날씨 추천에서 여름옷/겨울옷을 감점하거나 보너스 주는 기준으로 쓰입니다.
-function getSeasonTag(type: string, category: ClothingCategory) {
+// 외부 데이터(카탈로그·AI 예측)의 계절 문자열을 4개 SeasonTag 중 하나로 정규화합니다. 미지의 값은 '사계절'로 처리합니다.
+function normalizeSeasonTag(value: string | undefined): SeasonTag {
+  return value && (SEASON_TAGS as readonly string[]).includes(value) ? (value as SeasonTag) : '사계절';
+}
+
+function getSeasonTag(type: string, category: ClothingCategory): SeasonTag {
   if (type.includes('패딩') || type.includes('코트') || type.includes('니트')) return '겨울';
   if (type.includes('반팔') || type.includes('반바지') || type.includes('샌들')) return '여름';
   if (category === '아우터' || type.includes('셔츠') || type.includes('블레이저')) return '봄/가을';
@@ -458,7 +465,7 @@ function fromCatalog(item: CatalogItem, wardrobeId: string): ClothingItem {
     representativeColor: item.representativeColor,
     representativeHex: item.representativeHex,
     dominantColors: item.dominantColors,
-    seasonTag: item.seasonTag,
+    seasonTag: normalizeSeasonTag(item.seasonTag),
     patternType: item.patternType,
     material: item.material,
     availabilityStatus: '보유중',
@@ -540,7 +547,7 @@ function reconcileStoredClothing(items: ClothingItem[]) {
         representativeColor: catalogItem.representativeColor,
         representativeHex: catalogItem.representativeHex,
         dominantColors: catalogItem.dominantColors,
-        seasonTag: catalogItem.seasonTag,
+        seasonTag: normalizeSeasonTag(catalogItem.seasonTag),
         patternType: catalogItem.patternType,
         material: catalogItem.material,
         isNeutral: catalogItem.isNeutral,

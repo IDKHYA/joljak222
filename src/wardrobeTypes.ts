@@ -37,6 +37,8 @@ export type RecommendationMode = '데일리' | '출근' | '데이트' | '발표'
 export type PatternType = 'solid' | 'stripe' | 'plaid' | 'graphic';
 export type MaterialType = 'cotton' | 'denim' | 'knit' | 'leather' | 'nylon' | 'wool' | 'unknown';
 export type DenimWash = 'light' | 'mid' | 'dark' | 'black';
+// 의류가 적합한 계절 구간. 퍼스널컬러 시즌(12계절)과 다른 축이며, 날씨 기반 추천 필터에 사용됩니다.
+export type SeasonTag = '봄/가을' | '여름' | '겨울' | '사계절';
 
 export interface Wardrobe {
   id: string;
@@ -73,7 +75,7 @@ export interface ClothingItem {
   representativeColor: string;
   representativeHex: string;
   dominantColors: ClothingColorAnalysis[];
-  seasonTag: string;
+  seasonTag: SeasonTag;
   patternType: PatternType;
   material: MaterialType;
   availabilityStatus: AvailabilityStatus;
