@@ -100,16 +100,16 @@ import {
 } from './wardrobeConstants';
 import {
   buildRecommendations,
-  scoreItemForPersonalColor,
 } from './services/recommendationEngine';
 import { buildDailyLookState } from './services/dailyLook';
+import { INITIAL_WARDROBES, useWardrobes } from './hooks/useWardrobes';
 import { HomeDashboard } from './features/home/HomeDashboard';
 import { WardrobeSection } from './features/wardrobe/WardrobeSection';
 import { RecommendationDashboard } from './features/recommendation/RecommendationDashboard';
 import { SavedOutfits } from './features/saved-outfits/SavedOutfits';
 import { TryOn } from './features/try-on/TryOn';
 import { PersonalColorHistoryPanel, PersonalResult } from './features/personal/PersonalResult';
-import { buildColorMeta, catalogFromAnalysis, categoryFromMeta, dominantColorFromAnalysis, normalizePatternType, normalizeSeasonTag } from './services/clothingMeta';
+import { buildColorMeta, catalogFromAnalysis, categoryFromMeta, dominantColorFromAnalysis, normalizeSeasonTag } from './services/clothingMeta';
 import { clothingDisplayImage } from './services/clothingDisplay';
 
 
@@ -166,12 +166,6 @@ function catalog(id: string, name: string, category: ClothingCategory, subcatego
 
 // 이미지 분석 결과의 part 정보를 사용해 카테고리를 보정합니다.
 // fallback이 액세서리로 들어온 경우에도 실제로는 하의/아우터/신발일 수 있어 여기서 정리합니다.
-const INITIAL_WARDROBES: Wardrobe[] = [
-  { id: 'w-demo-1', name: '출근용 옷장', createdAt: '2026-04-24T00:00:00.000Z' },
-  { id: 'w-demo-2', name: '주말 캐주얼 옷장', createdAt: '2026-04-24T00:00:00.000Z' },
-  { id: 'w-demo-3', name: '발표/중요 일정 옷장', createdAt: '2026-04-24T00:00:00.000Z' },
-];
-
 const INITIAL_CATALOG_ITEMS: CatalogItem[] = [
   catalog('catalog-1', '베이직 무지 화이트 반팔 티셔츠', '상의', '반팔티', '화이트', 'M', 'Fitly Basic', 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=700&q=80'),
   catalog('catalog-2', '오버핏 스트라이프 셔츠', '상의', '셔츠', '블루', 'M', 'Monday Label', 'https://images.unsplash.com/photo-1596755094514-f87e32f85e2c?auto=format&fit=crop&w=700&q=80'),
@@ -232,8 +226,6 @@ function catalogToDailyLookItem(item: CatalogItem): ScoredClothingItem {
   };
 }
 
-const INITIAL_CLOTHING: ClothingItem[] = [];
-
 // localStorage에서 JSON 데이터를 읽고 실패하면 fallback을 반환합니다.
 // 저장 데이터가 깨져도 앱이 빈 화면으로 죽지 않게 하는 방어 코드입니다.
 function loadJson<T>(key: string, fallback: T): T {
@@ -256,51 +248,6 @@ function saveJson<T>(key: string, value: T) {
   }
 }
 
-function normalizeClothingMeta(item: ClothingItem): ClothingItem {
-  const meta = buildColorMeta(item.category, item.type, item.color, item.dominantColors ?? item.segmentation?.colors, item.brand);
-  return {
-    ...item,
-    representativeColor: item.representativeColor ?? meta.representativeColor,
-    representativeHex: item.representativeHex ?? meta.representativeHex,
-    dominantColors: item.dominantColors?.length ? item.dominantColors : meta.dominantColors,
-    patternType: normalizePatternType(item.patternType),
-    material: item.material ?? meta.material,
-    isNeutral: item.isNeutral ?? meta.isNeutral,
-    isDenim: item.isDenim ?? meta.isDenim,
-    denimWash: item.denimWash ?? meta.denimWash,
-  };
-}
-
-// 저장된 카탈로그 의류를 최신 카탈로그 메타데이터와 동기화합니다.
-// 이미지 경로나 분석 메타가 바뀌어도 기존 사용자의 옷장 항목이 최신 기준을 따르게 합니다.
-function reconcileStoredClothing(items: ClothingItem[]) {
-  const catalogMap = new Map(ACTIVE_CATALOG_ITEMS.map((item) => [item.catalogItemId, item]));
-  return items
-    .filter((item) => item.sourceType !== 'catalog' || item.catalogItemId?.startsWith('catalog-'))
-    .map((item) => {
-      if (item.sourceType !== 'catalog') return normalizeClothingMeta(item);
-      const catalogItem = catalogMap.get(item.catalogItemId ?? '');
-      if (!catalogItem) return normalizeClothingMeta(item);
-      return normalizeClothingMeta({
-        ...item,
-        imageUrl: catalogItem.imageUrl,
-        category: catalogItem.category,
-        type: catalogItem.subcategory,
-        color: catalogItem.color,
-        brand: catalogItem.brand,
-        representativeColor: catalogItem.representativeColor,
-        representativeHex: catalogItem.representativeHex,
-        dominantColors: catalogItem.dominantColors,
-        seasonTag: normalizeSeasonTag(catalogItem.seasonTag),
-        patternType: catalogItem.patternType,
-        material: catalogItem.material,
-        isNeutral: catalogItem.isNeutral,
-        isDenim: catalogItem.isDenim,
-        denimWash: catalogItem.denimWash,
-      });
-    });
-}
-
 // 모바일 레이아웃/카메라 처리 분기를 위한 viewport 검사입니다.
 function isMobileViewport() {
   return typeof window !== 'undefined' && window.matchMedia('(max-width: 860px)').matches;
@@ -314,11 +261,9 @@ function App() {
   const [photoData, setPhotoData] = useState<PhotoAnalysisResult | null>(null);
   const [personalColorResult, setPersonalColorResult] = useState<FinalResult | null>(() => loadJson<FinalResult | null>(STORAGE_KEYS.personalColor, null));
   const [personalColorHistory, setPersonalColorHistory] = useState<PersonalColorRecord[]>(() => loadJson<PersonalColorRecord[]>(STORAGE_KEYS.personalHistory, []));
-  const [wardrobes, setWardrobes] = useState<Wardrobe[]>(() => loadJson(STORAGE_KEYS.wardrobes, INITIAL_WARDROBES));
-  const [clothingItems, setClothingItems] = useState<ClothingItem[]>(() => reconcileStoredClothing(loadJson(STORAGE_KEYS.clothing, INITIAL_CLOTHING)));
+  const { wardrobes, clothingItems, setClothingItems, selectedWardrobeId, setSelectedWardrobeId, scoredItems, activeWardrobe, activeItems, wardrobeHealthScore, readyWardrobeCount, persistClothing, createWardrobe, deleteClothing, renameWardrobe, deleteWardrobe, resetWardrobes, updateClothingItems } = useWardrobes(personalColorResult, ACTIVE_CATALOG_ITEMS);
   const [savedOutfits, setSavedOutfits] = useState<SavedOutfit[]>(() => loadJson(STORAGE_KEYS.saved, []));
   const [activeTryOnOutfitId, setActiveTryOnOutfitId] = useState<string | null>(null);
-  const [selectedWardrobeId, setSelectedWardrobeId] = useState(() => INITIAL_WARDROBES[0].id);
   const [wardrobeView, setWardrobeView] = useState<WardrobeView>('list');
   const [catalogCategory, setCatalogCategory] = useState<'전체' | ClothingCategory>('전체');
   const [detailCategory, setDetailCategory] = useState<'전체' | ClothingCategory>('전체');
@@ -472,29 +417,11 @@ function App() {
     });
   }, [selectedWardrobeId, wardrobes]);
 
-  const scoredItems = useMemo(() => clothingItems.map((item) => scoreItemForPersonalColor(item, personalColorResult)), [clothingItems, personalColorResult]);
   const dailyLookSourceItems = useMemo(() => [...scoredItems, ...ACTIVE_CATALOG_ITEMS.map(catalogToDailyLookItem)], [scoredItems]);
-  const activeWardrobe = wardrobes.find((wardrobe) => wardrobe.id === selectedWardrobeId) ?? wardrobes[0];
-  const activeItems = scoredItems.filter((item) => item.wardrobeId === activeWardrobe?.id);
   const filteredCatalog = catalogCategory === '전체' ? ACTIVE_CATALOG_ITEMS : ACTIVE_CATALOG_ITEMS.filter((item) => item.category === catalogCategory);
   const selectedCatalogItems = ACTIVE_CATALOG_ITEMS.filter((item) => selectedCatalogIds.includes(item.catalogItemId));
   const recommendItems = scoredItems.filter((item) => selectedRecommendWardrobes.has(item.wardrobeId));
   const recommendations = useMemo(() => buildRecommendations(recommendItems, weatherBand, recommendMode, personalColorResult), [recommendItems, weatherBand, recommendMode, personalColorResult]);
-  const wardrobeHealthScore = Math.round(scoredItems.reduce((sum, item) => sum + (item.personalFitScore ?? 100), 0) / Math.max(scoredItems.length, 1));
-  const readyWardrobeCount = wardrobes.filter((wardrobe) => {
-    const items = clothingItems.filter((item) => item.wardrobeId === wardrobe.id);
-    return items.some((item) => item.category === '상의') && items.some((item) => item.category === '하의');
-  }).length;
-
-  const persistWardrobes = (next: Wardrobe[]) => {
-    setWardrobes(next);
-    saveJson(STORAGE_KEYS.wardrobes, next);
-  };
-
-  const persistClothing = (next: ClothingItem[]) => {
-    setClothingItems(next);
-    saveJson(STORAGE_KEYS.clothing, next);
-  };
 
   const completeQuestionnaire = (scores: QuestionnaireScores, rawResponses: Record<string, string>) => {
     if (!photoData) return;
@@ -506,13 +433,6 @@ function App() {
     saveJson(STORAGE_KEYS.personalColor, result);
     saveJson(STORAGE_KEYS.personalHistory, nextHistory);
     navigate({ page: 'personal', analysisStep: 'result' });
-  };
-
-  const createWardrobe = (name: string) => {
-    const wardrobe: Wardrobe = { id: `w-${Date.now()}`, name, createdAt: new Date().toISOString() };
-    persistWardrobes([wardrobe, ...wardrobes]);
-    setSelectedWardrobeId(wardrobe.id);
-    return wardrobe.id;
   };
 
   const saveCatalogSelection = () => {
@@ -562,20 +482,6 @@ function App() {
     };
     persistClothing([...clothingItems, item]);
     navigate({ page: 'wardrobe', wardrobeView: 'detail' }, { replace: true });
-  };
-
-  const deleteClothing = (id: string) => persistClothing(clothingItems.filter((item) => item.id !== id));
-  const renameWardrobe = (id: string, name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    persistWardrobes(wardrobes.map((wardrobe) => (wardrobe.id === id ? { ...wardrobe, name: trimmed } : wardrobe)));
-  };
-
-  const deleteWardrobe = (id: string) => {
-    const nextWardrobes = wardrobes.filter((wardrobe) => wardrobe.id !== id);
-    persistWardrobes(nextWardrobes);
-    persistClothing(clothingItems.filter((item) => item.wardrobeId !== id));
-    setSelectedWardrobeId(nextWardrobes[0]?.id ?? '');
   };
 
   const saveOutfit = (outfit: OutfitRecommendation) => {
@@ -658,7 +564,7 @@ function App() {
         const detectedColor = dominantColorFromAnalysis(result.colors);
         const nextColor = detectedColor?.hex ?? item.color;
         const nextMeta = buildColorMeta(item.category, item.type, nextColor, result.colors, item.brand);
-        setClothingItems((prev) => {
+        updateClothingItems((prev) => {
           const next = prev.map((entry) => entry.id === item.id ? {
             ...entry,
             imageUrl: result.imageDataUrl,
@@ -683,7 +589,6 @@ function App() {
             isDenim: nextMeta.isDenim,
             denimWash: nextMeta.denimWash,
           } : entry);
-          saveJson(STORAGE_KEYS.clothing, next);
           return next;
         });
       } catch (error) {
@@ -711,8 +616,7 @@ function App() {
 
   const resetAllData = () => {
     resetPersonalColor();
-    persistWardrobes(INITIAL_WARDROBES);
-    persistClothing(INITIAL_CLOTHING);
+    resetWardrobes();
     setSavedOutfits([]);
     saveJson(STORAGE_KEYS.saved, []);
   };
