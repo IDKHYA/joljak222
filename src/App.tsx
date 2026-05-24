@@ -46,54 +46,28 @@ import { FAMILY_GUIDES, FAMILY_LABELS, PERSONAL_COLOR_MODEL_NOTE, SEASON_DETAILS
 import { fuseResults } from './services/personalColorEngine';
 import { TRAINING_CATALOG_ITEMS } from './data/trainingCatalog';
 import type { CatalogItem } from './data/trainingCatalog';
-import { hexToRgb } from './services/colorUtils';
 import { useWeather } from './hooks/useWeather';
-import { WEATHER_BANDS } from './lib/weather';
 import { FinalResult, PhotoAnalysisResult, QuestionnaireScores } from './types';
 import type {
-  AnalysisStep,
-  AppRouteState,
   AvailabilityStatus,
   BackgroundRemoveResult,
-  ClothingAnalysisMeta,
   ClothingCategory,
-  ClothingColorAnalysis,
   ClothingItem,
   ClothingSegmentationMeta,
-  DailyLookLayer,
-  DailyLookSlot,
-  DailyLookState,
-  DailyLookTextLayer,
-  DenimWash,
   MaterialType,
   OutfitRecommendation,
   Page,
-  PatternType,
   PersonalColorRecord,
   RecommendationMode,
   RecommendationWeatherBand,
-  SavedOutfit,
   ScoredClothingItem,
-  SeasonTag,
   Wardrobe,
-  WardrobeView,
 } from './wardrobeTypes';
 import {
-  AVAILABILITY_OPTIONS,
-  CATALOG_TABS,
-  CATEGORY_OPTIONS,
-  CATEGORY_UI_META,
-  COLOR_META,
-  COLOR_NAME_PATTERNS,
   CUTOUT_VERSION,
-  DENIM_WASH_LABELS,
   FINE_LABEL_TO_TYPE,
-  MATERIAL_LABELS,
-  PATTERN_LABELS,
   PRECISION_TARGET_BY_CATEGORY,
-  RECOMMENDATION_MODES,
   SEASON_LABELS,
-  SEASON_TAGS,
   SIZES,
   STORAGE_KEYS,
   TYPES,
@@ -101,8 +75,9 @@ import {
 import {
   buildRecommendations,
 } from './services/recommendationEngine';
-import { buildDailyLookState } from './services/dailyLook';
 import { INITIAL_WARDROBES, useWardrobes } from './hooks/useWardrobes';
+import { useSavedOutfits } from './hooks/useSavedOutfits';
+import { useAppRoute } from './hooks/useAppRoute';
 import { HomeDashboard } from './features/home/HomeDashboard';
 import { WardrobeSection } from './features/wardrobe/WardrobeSection';
 import { RecommendationDashboard } from './features/recommendation/RecommendationDashboard';
@@ -256,15 +231,15 @@ function isMobileViewport() {
 // 앱의 최상위 상태 컨테이너입니다.
 // 퍼스널컬러 결과, 옷장/의류, 추천 코디, 저장 코디, 라우팅 상태를 여기서 관리하고 하위 화면에 props로 내려줍니다.
 function App() {
-  const [page, setPage] = useState<Page>('home');
-  const [analysisStep, setAnalysisStep] = useState<AnalysisStep>('photo');
   const [photoData, setPhotoData] = useState<PhotoAnalysisResult | null>(null);
   const [personalColorResult, setPersonalColorResult] = useState<FinalResult | null>(() => loadJson<FinalResult | null>(STORAGE_KEYS.personalColor, null));
   const [personalColorHistory, setPersonalColorHistory] = useState<PersonalColorRecord[]>(() => loadJson<PersonalColorRecord[]>(STORAGE_KEYS.personalHistory, []));
   const { wardrobes, clothingItems, setClothingItems, selectedWardrobeId, setSelectedWardrobeId, scoredItems, activeWardrobe, activeItems, wardrobeHealthScore, readyWardrobeCount, persistClothing, createWardrobe, deleteClothing, renameWardrobe, deleteWardrobe, resetWardrobes, updateClothingItems } = useWardrobes(personalColorResult, ACTIVE_CATALOG_ITEMS);
-  const [savedOutfits, setSavedOutfits] = useState<SavedOutfit[]>(() => loadJson(STORAGE_KEYS.saved, []));
-  const [activeTryOnOutfitId, setActiveTryOnOutfitId] = useState<string | null>(null);
-  const [wardrobeView, setWardrobeView] = useState<WardrobeView>('list');
+  const { page, analysisStep, setAnalysisStep, wardrobeView, navigate, goPage, goBack } = useAppRoute(
+    selectedWardrobeId,
+    setSelectedWardrobeId,
+    wardrobes[0]?.id ?? INITIAL_WARDROBES[0].id,
+  );
   const [catalogCategory, setCatalogCategory] = useState<'전체' | ClothingCategory>('전체');
   const [detailCategory, setDetailCategory] = useState<'전체' | ClothingCategory>('전체');
   const [selectedCatalogIds, setSelectedCatalogIds] = useState<string[]>([]);
@@ -302,98 +277,6 @@ function App() {
   const [backgroundRemoveError, setBackgroundRemoveError] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
-  const routeStateRef = useRef<AppRouteState>({
-    page: 'home',
-    analysisStep: 'photo',
-    wardrobeView: 'list',
-    selectedWardrobeId: INITIAL_WARDROBES[0].id,
-  });
-  const routeInitializedRef = useRef(false);
-
-  const getRouteState = (): AppRouteState => ({
-    page,
-    analysisStep,
-    wardrobeView,
-    selectedWardrobeId,
-  });
-
-  const sameRoute = (left: AppRouteState, right: AppRouteState) =>
-    left.page === right.page &&
-    left.analysisStep === right.analysisStep &&
-    left.wardrobeView === right.wardrobeView &&
-    left.selectedWardrobeId === right.selectedWardrobeId;
-
-  const applyRouteState = (route: Partial<AppRouteState>) => {
-    const next: AppRouteState = {
-      ...routeStateRef.current,
-      ...route,
-    };
-    routeStateRef.current = next;
-    setPage(next.page);
-    setAnalysisStep(next.analysisStep);
-    setWardrobeView(next.wardrobeView);
-    setSelectedWardrobeId(next.selectedWardrobeId);
-  };
-
-  const navigate = (route: Partial<AppRouteState>, options: { replace?: boolean } = {}) => {
-    const next: AppRouteState = {
-      ...getRouteState(),
-      ...route,
-    };
-
-    if (sameRoute(routeStateRef.current, next)) return;
-
-    applyRouteState(next);
-
-    if (typeof window === 'undefined') return;
-    const historyState = { fitlyRoute: next };
-    if (options.replace) {
-      window.history.replaceState(historyState, '', window.location.href);
-    } else {
-      window.history.pushState(historyState, '', window.location.href);
-    }
-  };
-
-  const goPage = (nextPage: Page) => {
-    navigate({
-      page: nextPage,
-      analysisStep: nextPage === 'personal' ? 'photo' : analysisStep,
-      wardrobeView: nextPage === 'wardrobe' ? 'list' : wardrobeView,
-    });
-  };
-
-  const goBack = () => {
-    if (typeof window === 'undefined') {
-      navigate({ page: 'home' }, { replace: true });
-      return;
-    }
-    window.history.back();
-  };
-
-  useEffect(() => {
-    routeStateRef.current = getRouteState();
-  }, [page, analysisStep, wardrobeView, selectedWardrobeId]);
-
-  useEffect(() => {
-    if (routeInitializedRef.current || typeof window === 'undefined') return;
-    routeInitializedRef.current = true;
-    const initialRoute = getRouteState();
-    routeStateRef.current = initialRoute;
-    window.history.replaceState({ fitlyRoute: initialRoute }, '', window.location.href);
-
-    const handlePopState = (event: PopStateEvent) => {
-      const route = event.state?.fitlyRoute as AppRouteState | undefined;
-      applyRouteState(route ?? {
-        page: 'home',
-        analysisStep: 'photo',
-        wardrobeView: 'list',
-        selectedWardrobeId: wardrobes[0]?.id ?? INITIAL_WARDROBES[0].id,
-      });
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
 
   useEffect(() => {
     if (!weatherTouched && weatherState.data) setWeatherBand(weatherState.data.weatherBand);
@@ -418,6 +301,7 @@ function App() {
   }, [selectedWardrobeId, wardrobes]);
 
   const dailyLookSourceItems = useMemo(() => [...scoredItems, ...ACTIVE_CATALOG_ITEMS.map(catalogToDailyLookItem)], [scoredItems]);
+  const { savedOutfits, activeTryOnOutfitId, saveOutfit, deleteSavedOutfit, updateSavedOutfitDailyLook, createBlankDailyLook: createBlankDailyLookState, openDailyLookMaker: setActiveDailyLook, resetSavedOutfits } = useSavedOutfits(dailyLookSourceItems);
   const filteredCatalog = catalogCategory === '전체' ? ACTIVE_CATALOG_ITEMS : ACTIVE_CATALOG_ITEMS.filter((item) => item.category === catalogCategory);
   const selectedCatalogItems = ACTIVE_CATALOG_ITEMS.filter((item) => selectedCatalogIds.includes(item.catalogItemId));
   const recommendItems = scoredItems.filter((item) => selectedRecommendWardrobes.has(item.wardrobeId));
@@ -484,69 +368,13 @@ function App() {
     navigate({ page: 'wardrobe', wardrobeView: 'detail' }, { replace: true });
   };
 
-  const saveOutfit = (outfit: OutfitRecommendation) => {
-    const key = outfit.items.map((item) => item.id).join(',');
-    if (savedOutfits.some((saved) => saved.itemIds.join(',') === key)) return;
-    const next = [{
-      id: `saved-${Date.now()}`,
-      title: outfit.title,
-      score: outfit.score,
-      itemIds: outfit.items.map((item) => item.id),
-      colorHexes: outfit.items.map((item) => item.representativeHex),
-      weatherBand: outfit.weatherBand,
-      mode: outfit.mode,
-      savedAt: new Date().toISOString(),
-      explanationBullets: outfit.explanationBullets,
-      dailyLookState: buildDailyLookState(outfit.items),
-    }, ...savedOutfits];
-    setSavedOutfits(next);
-    saveJson(STORAGE_KEYS.saved, next);
-  };
-
-  const deleteSavedOutfit = (id: string) => {
-    const next = savedOutfits.filter((outfit) => outfit.id !== id);
-    setSavedOutfits(next);
-    saveJson(STORAGE_KEYS.saved, next);
-  };
-
-  const updateSavedOutfitDailyLook = (id: string, dailyLookState: DailyLookState, itemIds?: string[]) => {
-    const sourceMap = new Map<string, ScoredClothingItem>(dailyLookSourceItems.map((item) => [item.id, item]));
-    const uniqueItemIds = Array.from(new Set(itemIds));
-    const next = savedOutfits.map((outfit) => {
-      if (outfit.id !== id) return outfit;
-      const nextItemIds = itemIds ? uniqueItemIds : outfit.itemIds;
-      return {
-        ...outfit,
-        itemIds: nextItemIds,
-        colorHexes: nextItemIds.map((itemId) => sourceMap.get(itemId)?.representativeHex).filter(Boolean) as string[],
-        dailyLookState,
-      };
-    });
-    setSavedOutfits(next);
-    saveJson(STORAGE_KEYS.saved, next);
-  };
-
   const createBlankDailyLook = () => {
-    const outfit: SavedOutfit = {
-      id: `saved-${Date.now()}`,
-      title: '새 데일리룩',
-      score: 0,
-      itemIds: [],
-      colorHexes: [],
-      weatherBand: '상관없음',
-      mode: '데일리',
-      savedAt: new Date().toISOString(),
-      dailyLookState: buildDailyLookState([]),
-    };
-    const next = [outfit, ...savedOutfits];
-    setSavedOutfits(next);
-    saveJson(STORAGE_KEYS.saved, next);
-    setActiveTryOnOutfitId(outfit.id);
+    createBlankDailyLookState();
     navigate({ page: 'tryon' });
   };
 
   const openDailyLookMaker = (id: string) => {
-    setActiveTryOnOutfitId(id);
+    setActiveDailyLook(id);
     navigate({ page: 'tryon' });
   };
 
@@ -617,8 +445,7 @@ function App() {
   const resetAllData = () => {
     resetPersonalColor();
     resetWardrobes();
-    setSavedOutfits([]);
-    saveJson(STORAGE_KEYS.saved, []);
+    resetSavedOutfits();
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
