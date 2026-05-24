@@ -1,25 +1,9 @@
-// 저장한 코디와 데일리룩 편집 대상 상태를 관리하는 훅입니다.
+// 저장한 코디와 데일리룩 편집 상태를 관리하는 훅입니다.
 import { useState } from 'react';
 import { buildDailyLookState } from '../services/dailyLook';
 import type { DailyLookState, OutfitRecommendation, SavedOutfit, ScoredClothingItem } from '../wardrobeTypes';
 import { STORAGE_KEYS } from '../wardrobeConstants';
-
-function loadJson<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? (JSON.parse(stored) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveJson<T>(key: string, value: T) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    console.warn(`localStorage 저장 실패: ${key}`, error);
-  }
-}
+import { loadJson, saveJson } from '../services/storage';
 
 export function useSavedOutfits(dailyLookSourceItems: ScoredClothingItem[]) {
   const [savedOutfits, setSavedOutfits] = useState<SavedOutfit[]>(() => loadJson(STORAGE_KEYS.saved, []));

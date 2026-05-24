@@ -6,6 +6,7 @@ import type { ClothingItem, Wardrobe } from '../wardrobeTypes';
 import { STORAGE_KEYS } from '../wardrobeConstants';
 import { buildColorMeta, normalizePatternType, normalizeSeasonTag } from '../services/clothingMeta';
 import { scoreItemForPersonalColor } from '../services/recommendationEngine';
+import { loadJson, saveJson } from '../services/storage';
 
 export const INITIAL_WARDROBES: Wardrobe[] = [
   { id: 'w-demo-1', name: '출근용 옷장', createdAt: '2026-04-24T00:00:00.000Z' },
@@ -14,23 +15,6 @@ export const INITIAL_WARDROBES: Wardrobe[] = [
 ];
 
 const INITIAL_CLOTHING: ClothingItem[] = [];
-
-function loadJson<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? (JSON.parse(stored) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveJson<T>(key: string, value: T) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    console.warn(`localStorage 저장 실패: ${key}`, error);
-  }
-}
 
 function normalizeClothingMeta(item: ClothingItem): ClothingItem {
   const meta = buildColorMeta(item.category, item.type, item.color, item.dominantColors ?? item.segmentation?.colors, item.brand);

@@ -16,7 +16,7 @@
  * 타입은 wardrobeTypes.ts, 상수는 wardrobeConstants.ts, 추천 엔진은 services/recommendationEngine.ts에 있으며,
  * 이 파일에는 화면 컴포넌트, 라우팅, localStorage 영속 상태, 가상착용(데일리룩) 로직이 남아 있습니다.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -43,34 +43,22 @@ import PhotoAnalyzer from './components/PhotoAnalyzer';
 import Questionnaire from './components/Questionnaire';
 import { BackTitle, Chip, ColorTileGrid, EmptyState, InfoBox, MetricBox, PageTitle, PanelTitle, StatCard } from './components/common';
 import { FAMILY_GUIDES, FAMILY_LABELS, PERSONAL_COLOR_MODEL_NOTE, SEASON_DETAILS } from './seasonContent';
-import { fuseResults } from './services/personalColorEngine';
 import { TRAINING_CATALOG_ITEMS } from './data/trainingCatalog';
 import type { CatalogItem } from './data/trainingCatalog';
 import { useWeather } from './hooks/useWeather';
-import { FinalResult, PhotoAnalysisResult, QuestionnaireScores } from './types';
+import { FinalResult } from './types';
 import type {
-  AvailabilityStatus,
-  BackgroundRemoveResult,
   ClothingCategory,
   ClothingItem,
-  ClothingSegmentationMeta,
   MaterialType,
-  OutfitRecommendation,
   Page,
-  PersonalColorRecord,
   RecommendationMode,
   RecommendationWeatherBand,
   ScoredClothingItem,
-  Wardrobe,
 } from './wardrobeTypes';
 import {
   CUTOUT_VERSION,
-  FINE_LABEL_TO_TYPE,
-  PRECISION_TARGET_BY_CATEGORY,
   SEASON_LABELS,
-  SIZES,
-  STORAGE_KEYS,
-  TYPES,
 } from './wardrobeConstants';
 import {
   buildRecommendations,
@@ -78,6 +66,8 @@ import {
 import { INITIAL_WARDROBES, useWardrobes } from './hooks/useWardrobes';
 import { useSavedOutfits } from './hooks/useSavedOutfits';
 import { useAppRoute } from './hooks/useAppRoute';
+import { usePersonalColor } from './hooks/usePersonalColor';
+import { useManualClothing } from './hooks/useManualClothing';
 import { HomeDashboard } from './features/home/HomeDashboard';
 import { WardrobeSection } from './features/wardrobe/WardrobeSection';
 import { RecommendationDashboard } from './features/recommendation/RecommendationDashboard';
@@ -86,52 +76,7 @@ import { TryOn } from './features/try-on/TryOn';
 import { PersonalColorHistoryPanel, PersonalResult } from './features/personal/PersonalResult';
 import { buildColorMeta, catalogFromAnalysis, categoryFromMeta, dominantColorFromAnalysis, normalizeSeasonTag } from './services/clothingMeta';
 import { clothingDisplayImage } from './services/clothingDisplay';
-
-
-
-// 업로드 이미지가 너무 크면 서버 전송 전에 브라우저에서 축소합니다.
-// 배경 제거 API의 처리 시간과 payload 크기를 줄이기 위한 전처리입니다.
-async function resizeImageFileForUpload(file: File, maxSide = 1280) {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext('2d');
-  if (!context) return file;
-  context.drawImage(bitmap, 0, 0, width, height);
-  return new Promise<Blob>((resolve) => {
-    canvas.toBlob((blob) => resolve(blob ?? file), 'image/jpeg', 0.9);
-  });
-}
-
-// 카탈로그 이미지 URL을 서버 업로드 가능한 Blob으로 변환합니다.
-async function imageUrlToUploadBlob(imageUrl: string) {
-  const response = await fetch(imageUrl);
-  if (!response.ok) throw new Error(`이미지를 불러오지 못했습니다: ${response.status}`);
-  return response.blob();
-}
-
-// 서버 배경 제거 API를 호출해 의류 누끼 이미지와 색상 메타데이터를 받습니다.
-async function requestBackgroundRemoval(blob: Blob, fileName = 'clothing.jpg') {
-  const formData = new FormData();
-  formData.append('file', blob, fileName);
-  const response = await fetch('/api/background/remove', { method: 'POST', body: formData });
-  if (!response.ok) throw new Error(`누끼 API 오류: ${response.status}`);
-  return response.json() as Promise<BackgroundRemoveResult>;
-}
-
-// 사용자가 특정 의류 부위만 다시 추출하고 싶을 때 호출하는 정밀 추출 API입니다.
-async function requestPrecisionExtraction(blob: Blob, targetPart: string, fileName = 'clothing.jpg') {
-  const formData = new FormData();
-  formData.append('file', blob, fileName);
-  formData.append('targetPart', targetPart);
-  const response = await fetch('/api/clothing/extract', { method: 'POST', body: formData });
-  if (!response.ok) throw new Error(`정밀 누끼 API 오류: ${response.status}`);
-  return response.json() as Promise<BackgroundRemoveResult>;
-}
+import { imageUrlToUploadBlob, requestBackgroundRemoval } from './services/clothingImageApi';
 
 // 수동으로 정의한 샘플 카탈로그 데이터를 앱 내부 CatalogItem 형태로 만듭니다.
 function catalog(id: string, name: string, category: ClothingCategory, subcategory: string, color: string, size: string, brand: string, imageUrl: string): CatalogItem {
@@ -201,28 +146,6 @@ function catalogToDailyLookItem(item: CatalogItem): ScoredClothingItem {
   };
 }
 
-// localStorage에서 JSON 데이터를 읽고 실패하면 fallback을 반환합니다.
-// 저장 데이터가 깨져도 앱이 빈 화면으로 죽지 않게 하는 방어 코드입니다.
-function loadJson<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? (JSON.parse(stored) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-// 앱 상태를 localStorage에 저장합니다.
-// 저장 실패는 사용자 흐름을 막지 않도록 console 경고로만 남깁니다.
-function saveJson<T>(key: string, value: T) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    // 누끼 PNG data URL이 커질 수 있으므로 저장소 한도 초과가 앱 전체 오류로 번지지 않게 막습니다.
-    console.warn(`localStorage 저장 실패: ${key}`, error);
-  }
-}
-
 // 모바일 레이아웃/카메라 처리 분기를 위한 viewport 검사입니다.
 function isMobileViewport() {
   return typeof window !== 'undefined' && window.matchMedia('(max-width: 860px)').matches;
@@ -231,10 +154,8 @@ function isMobileViewport() {
 // 앱의 최상위 상태 컨테이너입니다.
 // 퍼스널컬러 결과, 옷장/의류, 추천 코디, 저장 코디, 라우팅 상태를 여기서 관리하고 하위 화면에 props로 내려줍니다.
 function App() {
-  const [photoData, setPhotoData] = useState<PhotoAnalysisResult | null>(null);
-  const [personalColorResult, setPersonalColorResult] = useState<FinalResult | null>(() => loadJson<FinalResult | null>(STORAGE_KEYS.personalColor, null));
-  const [personalColorHistory, setPersonalColorHistory] = useState<PersonalColorRecord[]>(() => loadJson<PersonalColorRecord[]>(STORAGE_KEYS.personalHistory, []));
-  const { wardrobes, clothingItems, setClothingItems, selectedWardrobeId, setSelectedWardrobeId, scoredItems, activeWardrobe, activeItems, wardrobeHealthScore, readyWardrobeCount, persistClothing, createWardrobe, deleteClothing, renameWardrobe, deleteWardrobe, resetWardrobes, updateClothingItems } = useWardrobes(personalColorResult, ACTIVE_CATALOG_ITEMS);
+  const { setPhotoData, personalColorResult, personalColorHistory, completeQuestionnaire, applyPersonalColorRecord, resetPersonalColor } = usePersonalColor();
+  const { wardrobes, clothingItems, selectedWardrobeId, setSelectedWardrobeId, scoredItems, activeWardrobe, activeItems, wardrobeHealthScore, readyWardrobeCount, persistClothing, createWardrobe, deleteClothing, renameWardrobe, deleteWardrobe, resetWardrobes, updateClothingItems } = useWardrobes(personalColorResult, ACTIVE_CATALOG_ITEMS);
   const { page, analysisStep, setAnalysisStep, wardrobeView, navigate, goPage, goBack } = useAppRoute(
     selectedWardrobeId,
     setSelectedWardrobeId,
@@ -255,39 +176,11 @@ function App() {
   const weatherState = useWeather();
   const [weatherBand, setWeatherBand] = useState<RecommendationWeatherBand>('20~22도');
   const [weatherTouched, setWeatherTouched] = useState(false);
-  const [manual, setManual] = useState({
-    imageUrl: '',
-    originalImageUrl: '',
-    cutoutImageUrl: '',
-    imageFile: null as File | null,
-    segmentation: null as ClothingSegmentationMeta | null,
-    category: '상의' as ClothingCategory,
-    type: '반팔티',
-    color: '화이트',
-    size: 'M',
-    brand: '',
-    seasonTag: '사계절',
-    availabilityStatus: '보유중' as AvailabilityStatus,
-    predictedSeasonTag: null as string | null,
-    predictedMaterial: null as string | null,
-    aiAnalyzed: false,
-    aiConfidence: null as number | null,
-  });
-  const [backgroundRemoveStatus, setBackgroundRemoveStatus] = useState<'idle' | 'processing' | 'done' | 'error'>('idle');
-  const [backgroundRemoveError, setBackgroundRemoveError] = useState('');
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const { manual, setManual, fileInputRef, cameraInputRef, backgroundRemoveStatus, backgroundRemoveError, handleFileChange, removeManualBackground, extractManualClothingPrecisely, handleManualCategory } = useManualClothing();
 
   useEffect(() => {
     if (!weatherTouched && weatherState.data) setWeatherBand(weatherState.data.weatherBand);
   }, [weatherState.data, weatherTouched]);
-
-  useEffect(() => {
-    if (!personalColorResult || personalColorHistory.length > 0) return;
-    const migrated = [{ id: `pc-${Date.now()}`, measuredAt: new Date().toISOString(), result: personalColorResult }];
-    setPersonalColorHistory(migrated);
-    saveJson(STORAGE_KEYS.personalHistory, migrated);
-  }, [personalColorHistory.length, personalColorResult]);
 
   useEffect(() => {
     if (!wardrobes.some((wardrobe) => wardrobe.id === selectedWardrobeId)) {
@@ -307,16 +200,8 @@ function App() {
   const recommendItems = scoredItems.filter((item) => selectedRecommendWardrobes.has(item.wardrobeId));
   const recommendations = useMemo(() => buildRecommendations(recommendItems, weatherBand, recommendMode, personalColorResult), [recommendItems, weatherBand, recommendMode, personalColorResult]);
 
-  const completeQuestionnaire = (scores: QuestionnaireScores, rawResponses: Record<string, string>) => {
-    if (!photoData) return;
-    const result = fuseResults(photoData, scores, rawResponses);
-    const record = { id: `pc-${Date.now()}`, measuredAt: new Date().toISOString(), result };
-    const nextHistory = [record, ...personalColorHistory].slice(0, 20);
-    setPersonalColorResult(result);
-    setPersonalColorHistory(nextHistory);
-    saveJson(STORAGE_KEYS.personalColor, result);
-    saveJson(STORAGE_KEYS.personalHistory, nextHistory);
-    navigate({ page: 'personal', analysisStep: 'result' });
+  const completeQuestionnaireAndNavigate = (scores: Parameters<typeof completeQuestionnaire>[0], rawResponses: Parameters<typeof completeQuestionnaire>[1]) => {
+    if (completeQuestionnaire(scores, rawResponses)) navigate({ page: 'personal', analysisStep: 'result' });
   };
 
   const saveCatalogSelection = () => {
@@ -425,171 +310,11 @@ function App() {
     }
   };
 
-  const applyPersonalColorRecord = (record: PersonalColorRecord) => {
-    const nextHistory = [record, ...personalColorHistory.filter((entry) => entry.id !== record.id)].slice(0, 20);
-    setPersonalColorResult(record.result);
-    setPersonalColorHistory(nextHistory);
-    saveJson(STORAGE_KEYS.personalColor, record.result);
-    saveJson(STORAGE_KEYS.personalHistory, nextHistory);
-  };
-
-  const resetPersonalColor = () => {
-    setPersonalColorResult(null);
-    setPhotoData(null);
-    setAnalysisStep('photo');
-    localStorage.removeItem(STORAGE_KEYS.personalColor);
-    setPersonalColorHistory([]);
-    localStorage.removeItem(STORAGE_KEYS.personalHistory);
-  };
-
   const resetAllData = () => {
     resetPersonalColor();
+    setAnalysisStep('photo');
     resetWardrobes();
     resetSavedOutfits();
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const objectUrl = URL.createObjectURL(file);
-    setManual((prev) => ({ ...prev, imageUrl: objectUrl, originalImageUrl: objectUrl, cutoutImageUrl: '', imageFile: file, segmentation: null, aiAnalyzed: false, aiConfidence: null }));
-    setBackgroundRemoveStatus('idle');
-    setBackgroundRemoveError('');
-    autoAnalyzeOnUpload(file);
-  };
-
-  // 사진 업로드 직후 자동 호출해 카테고리/계절/재질/색상을 AI로 감지하고 폼을 채웁니다.
-  const autoAnalyzeOnUpload = async (file: File) => {
-    setBackgroundRemoveStatus('processing');
-    setBackgroundRemoveError('');
-    let success = false;
-    try {
-      const resized = await resizeImageFileForUpload(file);
-      // upper_lower로 전체 의류를 추출하고 서버에서 자동으로 카테고리를 감지합니다.
-      const result = await requestPrecisionExtraction(resized, 'upper_lower', file.name || 'clothing.jpg');
-      const detectedColor = dominantColorFromAnalysis(result.colors);
-
-      // 서버 응답의 detectedCategory를 앱 내부 ClothingCategory로 변환합니다.
-      const categoryMap: Record<string, ClothingCategory> = { upper: '상의', lower: '하의', outer: '아우터' };
-      const detectedCat: ClothingCategory = (result.detectedCategory && categoryMap[result.detectedCategory]) || '상의';
-
-      // fine_labels에서 가장 먼저 매핑되는 한국어 종류를 가져옵니다.
-      const firstMatchedType = result.fineLabels
-        ?.map((label) => FINE_LABEL_TO_TYPE[label])
-        .find((t) => t && TYPES[detectedCat].includes(t));
-
-      // 예측 계절을 seasonTag에 반영합니다. '미분류'는 '사계절'로 처리합니다.
-      const seasonTagFromAI =
-        result.predictedSeason && result.predictedSeason !== '미분류' ? result.predictedSeason : '사계절';
-
-      setManual((prev) => ({
-        ...prev,
-        imageUrl: result.imageDataUrl,
-        cutoutImageUrl: result.imageDataUrl,
-        color: detectedColor?.hex ?? prev.color,
-        category: detectedCat,
-        type: firstMatchedType ?? TYPES[detectedCat][0],
-        seasonTag: seasonTagFromAI,
-        segmentation: {
-          width: result.width,
-          height: result.height,
-          bbox: result.bbox,
-          colors: result.colors ?? [],
-          model: result.model,
-          version: result.version ?? 'fashion-segformer-v1',
-          processedAt: result.processedAt,
-        },
-        predictedSeasonTag: result.predictedSeason ?? null,
-        predictedMaterial: result.predictedMaterial ?? null,
-        aiAnalyzed: true,
-        aiConfidence: result.seasonConfidence ?? null,
-      }));
-      success = true;
-    } catch (error) {
-      setBackgroundRemoveError(error instanceof Error ? error.message : 'AI 분석에 실패했습니다. 직접 입력하거나 누끼 따기를 사용하세요.');
-    } finally {
-      setBackgroundRemoveStatus(success ? 'done' : 'error');
-    }
-  };
-
-  const removeManualBackground = async () => {
-    if (!manual.imageFile) {
-      setBackgroundRemoveStatus('error');
-      setBackgroundRemoveError('먼저 앨범에서 이미지를 선택하거나 사진을 찍어주세요.');
-      return;
-    }
-    setBackgroundRemoveStatus('processing');
-    setBackgroundRemoveError('');
-    let success = false;
-    try {
-      const resized = await resizeImageFileForUpload(manual.imageFile);
-      const result = await requestBackgroundRemoval(resized, manual.imageFile.name || 'clothing.jpg');
-      const detectedColor = dominantColorFromAnalysis(result.colors);
-      setManual((prev) => ({
-        ...prev,
-        imageUrl: result.imageDataUrl,
-        cutoutImageUrl: result.imageDataUrl,
-        color: detectedColor?.hex ?? prev.color,
-        segmentation: {
-          width: result.width,
-          height: result.height,
-          bbox: result.bbox,
-          colors: result.colors ?? [],
-          model: result.model,
-          version: result.version ?? CUTOUT_VERSION,
-          processedAt: result.processedAt,
-        },
-      }));
-      success = true;
-    } catch (error) {
-      setBackgroundRemoveError(error instanceof Error ? error.message : '누끼 처리에 실패했습니다.');
-    } finally {
-      setBackgroundRemoveStatus(success ? 'done' : 'error');
-    }
-  };
-
-  const extractManualClothingPrecisely = async () => {
-    if (!manual.imageFile) {
-      setBackgroundRemoveStatus('error');
-      setBackgroundRemoveError('먼저 앨범에서 이미지를 선택하거나 사진을 찍어주세요.');
-      return;
-    }
-    setBackgroundRemoveStatus('processing');
-    setBackgroundRemoveError('');
-    let success = false;
-    try {
-      const resized = await resizeImageFileForUpload(manual.imageFile);
-      const targetPart = PRECISION_TARGET_BY_CATEGORY[manual.category];
-      const result = await requestPrecisionExtraction(resized, targetPart, manual.imageFile.name || 'clothing.jpg');
-      const detectedColor = dominantColorFromAnalysis(result.colors);
-      setManual((prev) => ({
-        ...prev,
-        imageUrl: result.imageDataUrl,
-        cutoutImageUrl: result.imageDataUrl,
-        color: detectedColor?.hex ?? prev.color,
-        segmentation: {
-          width: result.width,
-          height: result.height,
-          bbox: result.bbox,
-          colors: result.colors ?? [],
-          model: result.model,
-          version: result.version ?? 'fashion-segformer-v1',
-          processedAt: result.processedAt,
-        },
-        predictedSeasonTag: result.predictedSeason ?? null,
-        predictedMaterial: result.predictedMaterial ?? null,
-      }));
-      success = true;
-    } catch (error) {
-      setBackgroundRemoveError(error instanceof Error ? error.message : '정밀 누끼 처리에 실패했습니다.');
-    } finally {
-      setBackgroundRemoveStatus(success ? 'done' : 'error');
-    }
-  };
-
-  const handleManualCategory = (category: ClothingCategory) => {
-    const size = category === '하의' ? SIZES.bottoms[0] : category === '신발' ? SIZES.shoes[0] : SIZES.tops[1];
-    setManual((prev) => ({ ...prev, category, type: TYPES[category][0], size }));
   };
 
   const openCatalog = (mode: 'create' | 'append') => {
@@ -632,7 +357,7 @@ function App() {
             <section className="page-stack">
               <PageTitle title="나만의 퍼스널컬러 찾기" description="촬영과 설문으로 측정한 결과가 옷장 추천 기준으로 저장됩니다." icon={<Camera />} />
               {analysisStep === 'photo' && <PhotoAnalyzer onAnalysisComplete={(result) => { setPhotoData(result); navigate({ page: 'personal', analysisStep: 'questionnaire' }); }} />}
-              {analysisStep === 'questionnaire' && <Questionnaire onComplete={completeQuestionnaire} />}
+              {analysisStep === 'questionnaire' && <Questionnaire onComplete={completeQuestionnaireAndNavigate} />}
               {analysisStep === 'result' && personalColorResult && <PersonalResult result={personalColorResult} onRetry={() => navigate({ page: 'personal', analysisStep: 'photo' })} />}
             </section>
           )}
@@ -731,7 +456,7 @@ function App() {
               <PageTitle title="설정" description="데모 사용자 1명의 저장 데이터를 관리합니다." icon={<Settings />} />
               <PersonalColorHistoryPanel history={personalColorHistory} current={personalColorResult} onApply={applyPersonalColorRecord} />
               <section className="panel settings-panel">
-                <button className="line-button" type="button" onClick={resetPersonalColor}><RotateCcw size={16} /> 퍼스널 컬러 결과 초기화</button>
+                <button className="line-button" type="button" onClick={() => { resetPersonalColor(); setAnalysisStep('photo'); }}><RotateCcw size={16} /> 퍼스널 컬러 결과 초기화</button>
                 <button className="black-button" type="button" onClick={resetAllData}><Check size={16} /> 전체 데모 데이터 초기화</button>
               </section>
             </section>
