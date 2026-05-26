@@ -117,13 +117,14 @@ export function scoreItemForPersonalColor(item: ClothingItem, result: FinalResul
 
   const utilityBonus = item.isNeutral || item.isDenim ? 3 : 0;
   const score = Math.max(0, Math.min(100, Math.round(weightedPaletteScore + utilityBonus - weightedAvoidPenalty)));
+  const avoidRisk = weightedAvoidPenalty > 5;
 
   return {
     ...item,
     personalFitScore: score,
     fitGrade: gradeFromScore(score),
-    fitReason: `${SEASON_LABELS[result.seasonTop1Id]} 팔레트 기준 ${score}점`,
-    avoidRisk: weightedAvoidPenalty > 5,
+    fitReason: buildFitReason(item, colorSamples, score, avoidRisk, result),
+    avoidRisk,
   };
 }
 
@@ -177,13 +178,16 @@ export function hueAngleDiff(hex1: string, hex2: string): number {
   return diff > 180 ? 360 - diff : diff;
 }
 
-// Itten 색상 이론에 따른 조화 유형과 기본 점수입니다.
+// Itten 색상 이론의 배색 선호 서열을 0~100 척도에 배치한 hue 관계 기본 점수입니다.
+// 50을 "겨우 쓸 만함" 기준선으로 두고, 고전적으로 안정적인 배색일수록 높게 줍니다.
+// 보색(대비)·유사색(통일)이 가장 안정적이고, 색상환에서 어중간하게 떨어진 충돌 구간(tension)이 가장 약합니다.
+// 각 구간의 각도 경계는 classifyHarmonyType()이 정의하며, 여기 점수와 1:1로 대응합니다.
 export const HARMONY_BASE_SCORES: Record<string, number> = {
-  monochromatic: 80,  // 0~15°: 같은 색 명도/채도 변주
-  analogous: 82,      // 16~45°: 인접색, 차분하고 통일감 있음
-  tension: 55,        // 46~90°: 어색한 충돌 구간
-  triadic: 76,        // 91~135°: 균형 잡힌 3색 조화
-  complementary: 88,  // 136~180°: 보색, 강하고 세련된 대비
+  monochromatic: 80,  // 0~15°: 톤온톤. 안전하지만 다소 밋밋해 보색·유사색보다 낮음
+  analogous: 82,      // 16~45°: 인접색. 통일감 있고 자연스러워 높게 평가
+  tension: 55,        // 46~90°: Itten이 부조화로 본 어중간한 거리. 가장 낮은 기준선
+  triadic: 76,        // 91~135°: 삼각 배색. 균형은 잡히나 다소 번잡해 중상위
+  complementary: 88,  // 136~180°: 보색. 가장 강하고 세련된 고전적 대비라 최고점
 };
 
 export function classifyHarmonyType(angleDiff: number): string {
@@ -239,6 +243,26 @@ export function getHueBucket(hex: string): string {
   if (h < 255) return 'blue';
   if (h < 315) return 'purple';
   return 'pink';
+}
+
+// 아이템별 적합 사유를 '시즌 팔레트 + 매칭된 색계열 + 적합 점수'로 합성합니다.
+// 기존엔 "트루 윈터 팔레트 기준 87점"으로 시즌과 점수만 노출했는데,
+// 어떤 색계열이 왜 맞는지(혹은 회피색에 가까운지)를 함께 보여 줍니다.
+function buildFitReason(
+  item: ClothingItem,
+  colorSamples: { hex: string; ratio: number }[],
+  score: number,
+  avoidRisk: boolean,
+  result: FinalResult,
+): string {
+  const seasonName = result.seasonTop1 || SEASON_LABELS[result.seasonTop1Id];
+  const primaryHex = colorSamples[0]?.hex ?? item.representativeHex;
+  const bucketKo = HUE_BUCKET_KO[getHueBucket(primaryHex)] ?? '대표색';
+  if (avoidRisk) {
+    return `${seasonName} 팔레트에서 ${bucketKo} 계열은 회피색에 가까워 감점 (적합 ${score})`;
+  }
+  const matchPhrase = score >= 74 ? '잘 맞음' : score >= 58 ? '무난함' : '거리가 있음';
+  return `${seasonName} 팔레트의 ${bucketKo} 계열과 ${matchPhrase} (적합 ${score})`;
 }
 
 export interface ColorGroup {
@@ -367,6 +391,24 @@ function buildExplanationBullets(
   ];
 }
 
+// 코디 카드 상단 한 줄 요약을 시즌 + 조화 유형 한글 라벨 + 적합 점수로 합성합니다.
+// 기존엔 "퍼스널 컬러 적합도와 OO 날씨 조건을 함께 반영했습니다."라는 고정 문장이었는데,
+// 측정 결과가 있으면 어떤 시즌에 어떤 배색이 맞는지를 점수와 함께 말해 줍니다.
+function buildHeadlineReason(
+  harmonyType: string,
+  personalScore: number,
+  band: RecommendationWeatherBand,
+  result: FinalResult | null,
+): string {
+  const harmonyKo = HARMONY_TITLE_KO[harmonyType] ?? '코디';
+  if (!result) {
+    return band === '상관없음' ? `${harmonyKo} 코디` : `${band} 날씨에 맞춘 ${harmonyKo} 코디`;
+  }
+  const seasonName = result.seasonTop1 || SEASON_LABELS[result.seasonTop1Id];
+  const weatherText = band === '상관없음' ? '' : ` · ${band}`;
+  return `${seasonName}에 어울리는 ${harmonyKo} (적합 ${personalScore})${weatherText}`;
+}
+
 // 코디 내 패턴 조합 페널티를 계산합니다. 그래픽+솔리드, 같은 패턴 중복은 감점됩니다.
 export function calculatePatternPenalty(items: ScoredClothingItem[]): number {
   const patterns = items.map((i) => i.patternType).filter((p) => p !== 'solid');
@@ -384,45 +426,95 @@ function colorHarmonyFeatures(hex: string) {
   };
 }
 
+// === 색상 조화 점수 계수 (색 이론·색채 지각 경험칙에 근거, 값은 기존과 동일) ===
+// 발표에서 "이 숫자 왜 이 값이냐"를 추적할 수 있도록 매직 넘버를 이름과 근거로 분리합니다.
+
+// 한쪽이 무채색이면 hue 각도가 의미를 잃으므로 적용하는 중립 기준 점수입니다.
+const NEUTRAL_PAIR_HUE_SCORE = 85;
+
+// 코디 조화 점수 = 색상 관계 50% + 명도 균형 30% + 채도 균형 20%.
+// hue 관계가 조화의 1차 결정 요인이라 비중이 가장 크고(Itten 색상환 기반),
+// 명도 대비는 상하의 분리감(가독성), 채도 균형은 과한 충돌 억제용 미세 조정이라 그다음 순서입니다.
+const HARMONY_COMPONENT_WEIGHTS = { hue: 0.5, lightness: 0.3, saturation: 0.2 } as const;
+
+// 상하의 명도(L, 0~1) 차이의 이상값. 약 0.22(=22%p) 차이가 상하의를 구분하면서도 과하지 않은 대비를 만듭니다.
+const IDEAL_LIGHTNESS_GAP = 0.22;
+// 이상값에서 멀어질수록 점수를 깎는 기울기. 0.22에서 명도차가 1.0 벗어나면 약 120점 깎이는 강도(=급격)입니다.
+const LIGHTNESS_GAP_PENALTY_SLOPE = 120;
+// 명도 차이가 8%p 미만이면 상하의가 한 덩어리로 뭉개져 보여 강하게 감점합니다.
+const LOW_LIGHTNESS_CONTRAST = { maxGap: 0.08, penalty: 28 } as const;
+// 명도 차이가 55%p를 넘으면 위아래가 지나치게 갈라져 보여 약하게 감점합니다.
+const HIGH_LIGHTNESS_CONTRAST = { minGap: 0.55, penalty: 10 } as const;
+
+// 채도(S, 0~1) 차이가 클수록 통일감이 떨어진다고 보고 선형 감점합니다(차이 1.0당 45점).
+const SATURATION_DIFF_SLOPE = 45;
+// 상하의가 둘 다 고채도(>0.65)면 포인트가 두 개라 과하게 충돌하므로 감점합니다.
+const DOUBLE_POINT_SATURATION = { minSaturation: 0.65, penalty: 12 } as const;
+// 상하의가 둘 다 거의 무채(<0.12)면 코디가 밋밋해 소폭 감점합니다.
+const FLAT_SATURATION = { maxSaturation: 0.12, penalty: 6 } as const;
+
+// 명도·채도 균형 점수의 하한. 색이 안 맞아도 다른 축이 살릴 수 있어 0이 아니라 45를 바닥으로 둡니다.
+const BALANCE_SCORE_FLOOR = 45;
+
+// 시즌의 대비 선호 임계. contrast 특질이 0.5↑면 고대비 선호(겨울 계열), -0.2↓면 저대비 선호(여름 계열)로 봅니다.
+const SEASON_CONTRAST = { highPreference: 0.5, lowPreference: -0.2 } as const;
+// 시즌 대비 선호와 배색을 연결: 고대비 시즌은 보색 가산, 저대비 시즌은 보색 감점·유사색 가산.
+const COMPLEMENTARY_BONUS_FOR_HIGH_CONTRAST = 6;
+const COMPLEMENTARY_PENALTY_FOR_LOW_CONTRAST = 10;
+const ANALOGOUS_BONUS_FOR_LOW_CONTRAST = 6;
+
+// 코디 안정성 가산: 무채색·데님이 강한 포인트 색(채도 0.45↑)을 받쳐 줄 때 가장 안정적이라 봅니다.
+const POINT_COLOR_SATURATION = 0.45;
+const STABILITY_BONUS_WITH_POINT = 6;  // 포인트 색 + 받침색(무채/데님) 공존 시
+const STABILITY_BONUS_BASE = 3;        // 받침색만 있을 시
+
 function calculateLightnessBalanceScore(firstHex: string, secondHex: string): number {
   const first = colorHarmonyFeatures(firstHex);
   const second = colorHarmonyFeatures(secondHex);
   const diff = Math.abs(first.lightness - second.lightness);
-  const base = 100 - Math.abs(diff - 0.22) * 120;
-  const lowContrastPenalty = diff < 0.08 ? 28 : 0;
-  const highContrastPenalty = diff > 0.55 ? 10 : 0;
-  return clamp(base - lowContrastPenalty - highContrastPenalty, 45, 100);
+  const base = 100 - Math.abs(diff - IDEAL_LIGHTNESS_GAP) * LIGHTNESS_GAP_PENALTY_SLOPE;
+  const lowContrastPenalty = diff < LOW_LIGHTNESS_CONTRAST.maxGap ? LOW_LIGHTNESS_CONTRAST.penalty : 0;
+  const highContrastPenalty = diff > HIGH_LIGHTNESS_CONTRAST.minGap ? HIGH_LIGHTNESS_CONTRAST.penalty : 0;
+  return clamp(base - lowContrastPenalty - highContrastPenalty, BALANCE_SCORE_FLOOR, 100);
 }
 
 function calculateSaturationBalanceScore(firstHex: string, secondHex: string): number {
   const first = colorHarmonyFeatures(firstHex);
   const second = colorHarmonyFeatures(secondHex);
   const diff = Math.abs(first.saturation - second.saturation);
-  const doublePointPenalty = first.saturation > 0.65 && second.saturation > 0.65 ? 12 : 0;
-  const flatPenalty = first.saturation < 0.12 && second.saturation < 0.12 ? 6 : 0;
-  return clamp(100 - diff * 45 - doublePointPenalty - flatPenalty, 45, 100);
+  const doublePointPenalty = first.saturation > DOUBLE_POINT_SATURATION.minSaturation && second.saturation > DOUBLE_POINT_SATURATION.minSaturation ? DOUBLE_POINT_SATURATION.penalty : 0;
+  const flatPenalty = first.saturation < FLAT_SATURATION.maxSaturation && second.saturation < FLAT_SATURATION.maxSaturation ? FLAT_SATURATION.penalty : 0;
+  return clamp(100 - diff * SATURATION_DIFF_SLOPE - doublePointPenalty - flatPenalty, BALANCE_SCORE_FLOOR, 100);
 }
 
 function calculateUtilityStabilityBonus(items: ScoredClothingItem[]): number {
   const hasNeutral = items.some((item) => item.isNeutral);
   const hasDenim = items.some((item) => item.isDenim);
-  const hasColorPoint = items.some((item) => colorHarmonyFeatures(item.representativeHex).saturation > 0.45);
-  if (hasColorPoint && (hasNeutral || hasDenim)) return 6;
-  if (hasNeutral || hasDenim) return 3;
+  const hasColorPoint = items.some((item) => colorHarmonyFeatures(item.representativeHex).saturation > POINT_COLOR_SATURATION);
+  if (hasColorPoint && (hasNeutral || hasDenim)) return STABILITY_BONUS_WITH_POINT;
+  if (hasNeutral || hasDenim) return STABILITY_BONUS_BASE;
   return 0;
 }
 
 function calculatePairHarmonyScore(first: ScoredClothingItem, second: ScoredClothingItem, result: FinalResult | null): number {
   const angleDiff = hueAngleDiff(first.representativeHex, second.representativeHex);
   const harmonyType = first.isNeutral || second.isNeutral ? 'neutral' : classifyHarmonyType(angleDiff);
-  const hueScore = HARMONY_BASE_SCORES[harmonyType] ?? 85;
+  const hueScore = HARMONY_BASE_SCORES[harmonyType] ?? NEUTRAL_PAIR_HUE_SCORE;
   const lightnessScore = calculateLightnessBalanceScore(first.representativeHex, second.representativeHex);
   const saturationScore = calculateSaturationBalanceScore(first.representativeHex, second.representativeHex);
-  let score = hueScore * 0.5 + lightnessScore * 0.3 + saturationScore * 0.2;
+  let score = hueScore * HARMONY_COMPONENT_WEIGHTS.hue
+    + lightnessScore * HARMONY_COMPONENT_WEIGHTS.lightness
+    + saturationScore * HARMONY_COMPONENT_WEIGHTS.saturation;
 
+  // 시즌의 대비 선호와 코디 배색을 연결합니다. 고대비 선호 시즌엔 보색을 가산, 저대비 선호 시즌엔 보색을 감점·유사색을 가산.
   const preferredContrast = result ? SEASON_PROFILES[result.seasonTop1Id].traits.contrast : 0;
-  if (harmonyType === 'complementary') score += preferredContrast > 0.5 ? 6 : preferredContrast < -0.2 ? -10 : 0;
-  if (harmonyType === 'analogous') score += preferredContrast < -0.2 ? 6 : 0;
+  if (harmonyType === 'complementary') {
+    score += preferredContrast > SEASON_CONTRAST.highPreference ? COMPLEMENTARY_BONUS_FOR_HIGH_CONTRAST
+      : preferredContrast < SEASON_CONTRAST.lowPreference ? -COMPLEMENTARY_PENALTY_FOR_LOW_CONTRAST : 0;
+  }
+  if (harmonyType === 'analogous') {
+    score += preferredContrast < SEASON_CONTRAST.lowPreference ? ANALOGOUS_BONUS_FOR_LOW_CONTRAST : 0;
+  }
 
   return score;
 }
@@ -469,6 +561,42 @@ export function diversifyRecommendations(outfits: OutfitRecommendation[], maxPer
   });
 }
 
+// 구성된 코디 아이템 배열 하나를 받아 4축 점수와 설명을 합성한 추천 객체로 만듭니다.
+// buildRecommendations(전수 조합)와 buildAnchoredRecommendations(기준 옷 고정)가 점수 산식을 공유합니다.
+function scoreOutfit(outfitItems: ScoredClothingItem[], band: RecommendationWeatherBand, mode: RecommendationMode, result: FinalResult | null): OutfitRecommendation {
+  const personalScore = Math.round(outfitItems.reduce((sum, item) => sum + (item.personalFitScore ?? 55), 0) / outfitItems.length);
+  const weatherScore = Math.round(outfitItems.reduce((sum, item) => sum + getWeatherScore(item, band), 0) / outfitItems.length);
+  const harmonyScore = calculateHarmonyScore(outfitItems, result);
+  const stabilityScore = outfitItems.every((item) => item.availabilityStatus === '보유중') ? 92 : 68;
+  const scoreBreakdown = {
+    personal: Math.round(personalScore * SCORE_WEIGHTS.personal),
+    weather: Math.round(weatherScore * SCORE_WEIGHTS.weather),
+    harmony: Math.round(harmonyScore * SCORE_WEIGHTS.harmony),
+    stability: Math.round(stabilityScore * SCORE_WEIGHTS.stability),
+  };
+  const score = scoreBreakdown.personal + scoreBreakdown.weather + scoreBreakdown.harmony + scoreBreakdown.stability;
+  const baseScore = calculateBaseScore(personalScore, weatherScore, outfitItems);
+  const harmonyType = getHarmonyType(outfitItems);
+  return {
+    id: outfitItems.map((item) => item.id).join('-'),
+    title: `${HARMONY_TITLE_KO[harmonyType] ?? ''} ${mode} 코디`,
+    harmonyType,
+    score,
+    baseScore,
+    qualityAdjustment: score - baseScore,
+    personalScore,
+    harmonyScore,
+    weatherScore,
+    stabilityScore,
+    items: outfitItems,
+    reason: buildHeadlineReason(harmonyType, personalScore, band, result),
+    scoreBreakdown,
+    explanationBullets: buildExplanationBullets(outfitItems, personalScore, weatherScore, harmonyScore, harmonyType, band, result),
+    weatherBand: band,
+    mode,
+  };
+}
+
 // 상의/하의/아우터/신발 후보를 조합해 코디 추천 리스트를 만듭니다.
 // 최종 점수는 퍼스널컬러 38%, 날씨 22%, 색상 조화 28%, 착용 안정성 12%로 계산합니다.
 export function buildRecommendations(items: ScoredClothingItem[], band: RecommendationWeatherBand, mode: RecommendationMode, result: FinalResult | null): OutfitRecommendation[] {
@@ -489,40 +617,73 @@ export function buildRecommendations(items: ScoredClothingItem[], band: Recommen
         const key = outfitUniqueKey(outfitItems);
         if (seenOutfits.has(key)) return;
         seenOutfits.add(key);
-        const personalScore = Math.round(outfitItems.reduce((sum, item) => sum + (item.personalFitScore ?? 55), 0) / outfitItems.length);
-        const weatherScore = Math.round(outfitItems.reduce((sum, item) => sum + getWeatherScore(item, band), 0) / outfitItems.length);
-        const harmonyScore = calculateHarmonyScore(outfitItems, result);
-        const stabilityScore = outfitItems.every((item) => item.availabilityStatus === '보유중') ? 92 : 68;
-        const scoreBreakdown = {
-          personal: Math.round(personalScore * SCORE_WEIGHTS.personal),
-          weather: Math.round(weatherScore * SCORE_WEIGHTS.weather),
-          harmony: Math.round(harmonyScore * SCORE_WEIGHTS.harmony),
-          stability: Math.round(stabilityScore * SCORE_WEIGHTS.stability),
-        };
-        const score = scoreBreakdown.personal + scoreBreakdown.weather + scoreBreakdown.harmony + scoreBreakdown.stability;
-        const baseScore = calculateBaseScore(personalScore, weatherScore, outfitItems);
-        const harmonyType = getHarmonyType(outfitItems);
-        outfits.push({
-          id: `${top.id}-${bottom.id}-${outer?.id ?? 'noouter'}`,
-          title: `${HARMONY_TITLE_KO[harmonyType] ?? ''} ${mode} 코디`,
-          harmonyType,
-          score,
-          baseScore,
-          qualityAdjustment: score - baseScore,
-          personalScore,
-          harmonyScore,
-          weatherScore,
-          stabilityScore,
-          items: outfitItems,
-          reason: band === '상관없음' ? '퍼스널 컬러 적합도와 코디 안정성을 우선 반영했습니다.' : `퍼스널 컬러 적합도와 ${band} 날씨 조건을 함께 반영했습니다.`,
-          scoreBreakdown,
-          explanationBullets: buildExplanationBullets(outfitItems, personalScore, weatherScore, harmonyScore, harmonyType, band, result),
-          weatherBand: band,
-          mode,
-        });
+        outfits.push(scoreOutfit(outfitItems, band, mode, result));
       });
     });
   });
 
   return diversifyRecommendations(outfits.sort((a, b) => b.score - a.score).slice(0, 60));
+}
+
+// 기준 옷 코디 다양성 계수. 같은 상대 옷(하의·아우터)이 최대 2개 코디까지만 등장하게 해 변별력을 높이고,
+// 최종 노출은 24개로 제한해 점수순 상위의 다양한 조합만 보여 줍니다.
+const MAX_APPEARANCE_PER_COUNTERPART = 2;
+const ANCHORED_RESULT_LIMIT = 24;
+
+// 기준 옷(anchor) 한 벌을 반드시 포함하는 코디만 만듭니다.
+// 날씨 축은 '상관없음'으로 고정해 퍼스널컬러와 색상 조화에 집중합니다(이 기능의 질문은 "이 옷에 색이 어울리는 옷").
+// 기준이 상의면 풀의 하의와, 하의면 상의와, 아우터면 상의×하의와 묶고, 상하의 기준일 때는 아우터를 한 겹 더 얹습니다.
+// 신발·액세서리 기준은 v1에서 지원하지 않아 빈 배열을 반환합니다.
+export function buildAnchoredRecommendations(
+  anchor: ScoredClothingItem,
+  pool: ScoredClothingItem[],
+  result: FinalResult | null,
+  mode: RecommendationMode = '데일리',
+): OutfitRecommendation[] {
+  const band: RecommendationWeatherBand = '상관없음';
+  const anchorKey = itemUniqueKey(anchor);
+  const usable = dedupeRecommendationItems(
+    pool.filter(
+      (item) =>
+        item.availabilityStatus !== '추천제외' &&
+        item.availabilityStatus !== '세탁중' &&
+        itemUniqueKey(item) !== anchorKey,
+    ),
+  );
+  const tops = usable.filter((item) => item.category === '상의');
+  const bottoms = usable.filter((item) => item.category === '하의');
+  const outerOptions = [undefined, ...usable.filter((item) => item.category === '아우터')];
+
+  const outfits: OutfitRecommendation[] = [];
+  const seenOutfits = new Set<string>();
+  const pushOutfit = (candidates: (ScoredClothingItem | undefined)[]) => {
+    const outfitItems = dedupeRecommendationItems(candidates.filter(Boolean) as ScoredClothingItem[]);
+    if (outfitItems.length < 2) return;
+    const key = outfitUniqueKey(outfitItems);
+    if (seenOutfits.has(key)) return;
+    seenOutfits.add(key);
+    outfits.push(scoreOutfit(outfitItems, band, mode, result));
+  };
+
+  if (anchor.category === '상의') {
+    bottoms.forEach((bottom) => outerOptions.forEach((outer) => pushOutfit([outer, anchor, bottom])));
+  } else if (anchor.category === '하의') {
+    tops.forEach((top) => outerOptions.forEach((outer) => pushOutfit([outer, top, anchor])));
+  } else if (anchor.category === '아우터') {
+    tops.forEach((top) => bottoms.forEach((bottom) => pushOutfit([anchor, top, bottom])));
+  }
+
+  // 기준 옷은 모든 코디에 들어가므로 표준 diversifyRecommendations(아이템당 3회 제한)를 그대로 쓰면
+  // 기준 옷이 먼저 한도에 걸려 결과가 3개로 잘린다. 그래서 기준 옷을 뺀 '상대 옷' 등장 횟수만 제한해
+  // 같은 하의·아우터가 반복되지 않게 하면서 다양한 조합이 골고루 나오도록 한다.
+  const counterpartCount = new Map<string, number>();
+  return outfits
+    .sort((a, b) => b.score - a.score)
+    .filter((outfit) => {
+      const counterparts = outfit.items.filter((item) => itemUniqueKey(item) !== anchorKey);
+      if (counterparts.some((item) => (counterpartCount.get(itemUniqueKey(item)) ?? 0) >= MAX_APPEARANCE_PER_COUNTERPART)) return false;
+      counterparts.forEach((item) => counterpartCount.set(itemUniqueKey(item), (counterpartCount.get(itemUniqueKey(item)) ?? 0) + 1));
+      return true;
+    })
+    .slice(0, ANCHORED_RESULT_LIMIT);
 }

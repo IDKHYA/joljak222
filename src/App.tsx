@@ -62,6 +62,7 @@ import {
 } from './wardrobeConstants';
 import {
   buildRecommendations,
+  scoreItemForPersonalColor,
 } from './services/recommendationEngine';
 import { INITIAL_WARDROBES, useWardrobes } from './hooks/useWardrobes';
 import { useSavedOutfits } from './hooks/useSavedOutfits';
@@ -71,6 +72,7 @@ import { useManualClothing } from './hooks/useManualClothing';
 import { HomeDashboard } from './features/home/HomeDashboard';
 import { WardrobeSection } from './features/wardrobe/WardrobeSection';
 import { RecommendationDashboard } from './features/recommendation/RecommendationDashboard';
+import { AnchorOutfitFinder } from './features/recommendation/AnchorOutfitFinder';
 import { SavedOutfits } from './features/saved-outfits/SavedOutfits';
 import { TryOn } from './features/try-on/TryOn';
 import { PersonalColorHistoryPanel, PersonalResult } from './features/personal/PersonalResult';
@@ -106,6 +108,10 @@ const INITIAL_CATALOG_ITEMS: CatalogItem[] = [
 ];
 
 const ACTIVE_CATALOG_ITEMS = TRAINING_CATALOG_ITEMS;
+
+// 기준 옷 코디 찾기에서 카탈로그 후보 풀에 부여하는 가상 옷장 id입니다.
+// 옷장(보유) 아이템과 출처를 구분하고, 카탈로그 아이템끼리 id가 안정적으로 유지되게 합니다.
+const ANCHOR_CATALOG_POOL_ID = 'anchor-catalog-pool';
 
 // 카탈로그 상품을 사용자의 특정 옷장에 들어가는 실제 ClothingItem으로 복사합니다.
 // 같은 카탈로그라도 옷장별로 별도 id를 갖게 해 삭제/상태 변경을 독립적으로 처리합니다.
@@ -199,6 +205,13 @@ function App() {
   const selectedCatalogItems = ACTIVE_CATALOG_ITEMS.filter((item) => selectedCatalogIds.includes(item.catalogItemId));
   const recommendItems = scoredItems.filter((item) => selectedRecommendWardrobes.has(item.wardrobeId));
   const recommendations = useMemo(() => buildRecommendations(recommendItems, weatherBand, recommendMode, personalColorResult), [recommendItems, weatherBand, recommendMode, personalColorResult]);
+
+  // 기준 옷 코디 찾기. 카탈로그 전체를 퍼스널컬러 점수까지 매겨 후보 풀로 만들어 두고(memo), 옷장 풀과 함께 넘긴다.
+  const anchorCatalogPool = useMemo(
+    () => ACTIVE_CATALOG_ITEMS.map((item) => scoreItemForPersonalColor(fromCatalog(item, ANCHOR_CATALOG_POOL_ID), personalColorResult)),
+    [personalColorResult],
+  );
+  const [anchorItem, setAnchorItem] = useState<ScoredClothingItem | null>(null);
 
   const completeQuestionnaireAndNavigate = (scores: Parameters<typeof completeQuestionnaire>[0], rawResponses: Parameters<typeof completeQuestionnaire>[1]) => {
     if (completeQuestionnaire(scores, rawResponses)) navigate({ page: 'personal', analysisStep: 'result' });
@@ -413,6 +426,7 @@ function App() {
               backgroundRemoveError={backgroundRemoveError}
               onCategory={handleManualCategory}
               onSaveManual={addManualItem}
+              onFindOutfits={setAnchorItem}
             />
           )}
 
@@ -462,6 +476,16 @@ function App() {
             </section>
           )}
         </main>
+        {anchorItem && (
+          <AnchorOutfitFinder
+            anchor={anchorItem}
+            wardrobePool={scoredItems}
+            catalogPool={anchorCatalogPool}
+            personalColorResult={personalColorResult}
+            onSave={saveOutfit}
+            onClose={() => setAnchorItem(null)}
+          />
+        )}
         <MobileNav page={page} go={goPage} />
       </div>
     </div>
