@@ -34,7 +34,11 @@ export default defineConfig({
   },
   server: {
     allowedHosts: ['.trycloudflare.com'],
-    hmr: process.env.DISABLE_HMR !== 'true',
+    hmr: process.env.DISABLE_HMR === 'true'
+      ? false
+      : { protocol: 'wss', clientPort: 443 },
+    // Windows에서 파일시스템 이벤트가 씹히는 문제를 폴링으로 우회합니다.
+    watch: { usePolling: true, interval: 300 },
     headers: { 'Cache-Control': 'no-store' },
     proxy: {
       '/api': {
