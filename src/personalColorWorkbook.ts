@@ -1,10 +1,10 @@
-/*
+﻿/*
  * personalColorWorkbook.ts
  *
  * 12시즌 퍼스널컬러 기준 데이터를 코드로 변환해 보관하는 파일입니다.
  * 엑셀 원본의 시즌별 팔레트, 평균 RGB, 명도/채도/온도/대비 통계, 4축 traits를 TypeScript 상수로 제공합니다.
  *
- * geminiService.ts는 이 데이터를 사용해 사진에서 추출한 skin/hair/eyes/lips 색상과 시즌 팔레트의 Lab/Delta E 거리를 계산합니다.
+ * personalColorEngine.ts는 이 데이터를 사용해 사진에서 추출한 skin/hair/eyes/lips 색상과 시즌 팔레트의 Lab/Delta E 거리를 계산합니다.
  * ResultDisplay.tsx는 같은 데이터를 결과 팔레트와 설명 화면에 표시하고,
  * App.tsx의 추천 로직은 최종 시즌 팔레트를 의류 대표 HEX와 비교하는 기준으로 사용합니다.
  */

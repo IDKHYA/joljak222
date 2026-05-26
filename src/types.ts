@@ -1,4 +1,4 @@
-/*
+﻿/*
  * types.ts
  *
  * 퍼스널컬러 진단 도메인의 공용 타입 정의 파일입니다.
@@ -7,7 +7,7 @@
  *
  * PhotoAnalyzer는 PhotoAnalysisResult를 만들고,
  * Questionnaire는 QuestionnaireScores를 만들며,
- * geminiService.ts의 로컬 룰 엔진은 두 값을 융합해 FinalResult를 생성합니다.
+ * personalColorEngine.ts의 로컬 룰 엔진은 두 값을 융합해 FinalResult를 생성합니다.
  * App.tsx와 ResultDisplay.tsx는 이 FinalResult를 저장/표시하고,
  * 추천 엔진은 FinalResult.palette과 seasonTop1Id를 사용해 의류 적합도를 계산합니다.
  */

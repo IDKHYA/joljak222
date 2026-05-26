@@ -66,6 +66,14 @@ npm run lint
 
 현재 `lint` 스크립트는 ESLint가 아니라 `tsc --noEmit` 기반 타입 검사용입니다.
 
+### 단위 테스트
+
+```bash
+npm test
+```
+
+`vitest` 기반입니다. 현재 추천 엔진(`src/services/recommendationEngine.ts`)의 점수 함수에 대한 단위 테스트가 있습니다.
+
 ## UI 흐름도
 
 ```mermaid
@@ -133,7 +141,7 @@ flowchart LR
 
 ## 사진 분석 상세
 
-사진 분석은 `src/components/PhotoAnalyzer.tsx`, `src/services/faceLandmarker.ts`, `src/services/photoAnalysis.ts`, `src/services/geminiService.ts`에 나뉘어 있습니다.
+사진 분석은 `src/components/PhotoAnalyzer.tsx`, `src/services/faceLandmarker.ts`, `src/services/photoAnalysis.ts`, `src/services/personalColorEngine.ts`에 나뉘어 있습니다.
 
 ### 1. 얼굴 감지
 
@@ -270,28 +278,39 @@ flowchart LR
 
 ```text
 src/
-  App.tsx                       # 앱 화면 전환, 옷장/추천/데일리룩, 의류 메타데이터 저장 흐름 제어
+  App.tsx                       # 앱 화면 전환, 옷장/추천/데일리룩, 의류 저장 흐름 제어 + 화면 컴포넌트
   main.tsx                      # React 엔트리
   index.css                     # Tailwind 기반 전역 스타일
-  types.ts                      # 시즌, 설문, 사진 분석, 최종 결과 타입
+  types.ts                      # 퍼스널컬러 진단 타입 (시즌, 설문, 사진 분석, 최종 결과)
   constants.ts                  # 설문 문항과 스와치/가중치
+  wardrobeTypes.ts              # 의류/옷장/추천/가상착용 도메인 타입
+  wardrobeConstants.ts          # 의류/추천 도메인 상수 (색상 메타, 날씨 룰, 라벨)
   personalColorWorkbook.ts      # 12계절 팔레트, traits, workbook 통계
   seasonContent.ts              # 시즌 설명, 별칭, 추천/워스트 컬러 설명
   components/
     PhotoAnalyzer.tsx           # 카메라, 자동 촬영, overlay, 사진 분석 호출
     Questionnaire.tsx           # 설문 진행, 스와치 옵션, 점수 계산 호출
-    ResultDisplay.tsx           # 결과 화면, 측정 상세, 개발자 모드
+    common.tsx                  # 공용 표시 UI (PageTitle, Chip, InfoBox, EmptyState 등)
   services/
     faceLandmarker.ts           # MediaPipe 모델 로딩 및 얼굴 검출
     photoAnalysis.ts            # ROI 생성, 픽셀 샘플링, 조명 보정, 품질 계산
-    geminiService.ts            # 사진/설문 점수화와 최종 융합 엔진
+    personalColorEngine.ts      # 사진/설문 점수화와 최종 융합 엔진 (구 geminiService.ts)
+    recommendationEngine.ts     # 코디 추천 엔진 (퍼컬/날씨/조화/안정성 4축 점수)
+    recommendationEngine.test.ts# 추천 엔진 단위 테스트 (vitest)
+    dailyLook.ts                # 가상착용 캔버스 레이어 자동 배치
+    clothingDisplay.ts          # 의류 이미지/색상 표시 헬퍼
     colorUtils.ts               # RGB/HSL/LAB 변환, Delta E, 보조 수식
   data/
-    musinsaCatalogData.ts       # 무신사 카탈로그 이미지와 분석 JSON 로딩
+    trainingCatalog.ts          # 학습 카탈로그 의류 데이터 (상의/하의/신발/액세서리)
+    outerCatalog.ts             # 카탈로그 아우터 데이터
+  hooks/
+    useWeather.ts               # 위치 기반 날씨/대기질 조회 hook
+  lib/
+    weather.ts                  # 기온 구간(WeatherBand) 정의와 매핑
 server/
   background_remove_api.py      # 일반 누끼, 정밀 의류 추출, 대표색 추출 FastAPI 서버
+  season_predictor.py           # SegFormer 결과 기반 계절/재질 예측 (RandomForest)
   requirements.txt              # 이미지 처리 서버 Python 의존성
-components/ui/                  # shadcn/ui 스타일 공용 컴포넌트
 ```
 
 ## 주요 데이터 구조
@@ -413,7 +432,7 @@ npm run dev:api
 - 정밀 누끼 서버는 첫 요청 때 `sayeed99/segformer-b3-fashion` 모델을 로드하므로 CPU 환경에서는 느릴 수 있습니다.
 - 의류 대표색은 전체 이미지가 아니라 누끼 결과의 불투명 픽셀을 샘플링해 계산합니다.
 - 앱 내부 일부 UI 문자열에 인코딩이 깨진 텍스트가 남아 있습니다. README는 UTF-8 한국어 기준으로 정리했지만, 실제 화면 문구 정비는 별도 작업이 필요합니다.
-- `geminiService.ts`라는 파일명과 달리 현재 최종 판정은 외부 Gemini API 호출이 아니라 로컬 계산 로직으로 수행됩니다.
+- 최종 판정은 외부 AI API 호출이 아니라 로컬 계산 로직으로 수행됩니다. 과거 `geminiService.ts`였으나 `personalColorEngine.ts`로 리네임되었습니다.
 
 ## 관련 문서와 자료
 

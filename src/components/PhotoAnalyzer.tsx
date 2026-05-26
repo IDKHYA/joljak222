@@ -1,4 +1,4 @@
-/*
+﻿/*
  * PhotoAnalyzer.tsx
  *
  * 퍼스널컬러 진단의 첫 단계인 사진 입력/카메라 분석 UI 컴포넌트입니다.
@@ -16,7 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { PhotoAnalysisResult } from '@/src/types';
 import { detectFaceSnapshot, getFaceLandmarker } from '@/src/services/faceLandmarker';
-import { analyzePhotoColors } from '@/src/services/geminiService';
+import { analyzePhotoColors } from '@/src/services/personalColorEngine';
 import { analyzeFaceSnapshotColors, buildSampleRegions, calibrationRegionToPixels, LiveDetectionState } from '@/src/services/photoAnalysis';
 
 interface PhotoAnalyzerProps {

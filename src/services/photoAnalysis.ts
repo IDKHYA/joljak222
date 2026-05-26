@@ -1,4 +1,4 @@
-/*
+﻿/*
  * photoAnalysis.ts
  *
  * 퍼스널컬러 사진 분석의 핵심 도메인 서비스입니다.
@@ -11,7 +11,7 @@
  * 4. 흰 종이 기준, 중립 배경, 모서리 fallback 순서로 조명 보정을 적용합니다.
  * 5. skin/hair/eyes/lips 대표색, RGB/HSL/Lab 측정값, 노출/대칭/구분도/얼굴 크기 기반 품질 점수를 생성합니다.
  *
- * 이 파일의 출력은 geminiService.ts의 로컬 융합 엔진으로 전달되어 12시즌 점수 계산에 사용됩니다.
+ * 이 파일의 출력은 personalColorEngine.ts의 로컬 융합 엔진으로 전달되어 12시즌 점수 계산에 사용됩니다.
  */
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 import type { MeasurementDetails } from '@/src/types';
