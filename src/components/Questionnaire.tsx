@@ -1,12 +1,12 @@
-/*
+﻿/*
  * Questionnaire.tsx
  *
- * 퍼스널컬러 진단의 두 번째 단계인 8문항 설문 UI 컴포넌트입니다.
+ * 퍼스널컬러 진단의 두 번째 단계인 5문항 설문 UI 컴포넌트입니다.
  * constants.ts의 QUESTIONS 데이터를 순서대로 보여주고, 사용자의 선택을 누적해 QuestionnaireScores로 정규화합니다.
  *
  * 설문 축은 temperature, lightness, clarity, contrast 네 가지입니다.
  * 사진 분석은 실제 색상 데이터라는 장점이 있지만 카메라/조명 오차가 있으므로,
- * 이 컴포넌트에서 수집한 착용 경험 기반 응답은 geminiService.ts의 최종 융합에서 안정화 신호로 사용됩니다.
+ * 이 컴포넌트에서 수집한 착용 경험 기반 응답은 personalColorEngine.ts의 최종 융합에서 안정화 신호로 사용됩니다.
  */
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
@@ -16,7 +16,7 @@ import { QuestionnaireScores } from '@/src/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { calculateQuestionnaireScores } from '@/src/services/geminiService';
+import { calculateQuestionnaireScores } from '@/src/services/personalColorEngine';
 
 interface QuestionnaireProps {
   onComplete: (scores: QuestionnaireScores, rawResponses: Record<string, string>) => void;
