@@ -1,0 +1,499 @@
+/* v2 골든 패스 앱의 화면 밀도와 반응형 레이아웃을 정의한다. */
+:root {
+  color: #1e2524;
+  background: #f5f3ef;
+  font-family:
+    Inter,
+    Pretendard,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button {
+  font: inherit;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 24px 18px;
+  background: #18211f;
+  color: #f7f2e9;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid #d8b56d;
+  font-weight: 800;
+}
+
+.rail-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.rail-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  color: #cdd8d3;
+  text-decoration: none;
+}
+
+.rail-link.active,
+.rail-link:hover {
+  background: #273532;
+  color: #fff;
+}
+
+.workspace {
+  display: grid;
+  gap: 22px;
+  padding: 24px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: #6c7772;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 2rem;
+  line-height: 1.15;
+}
+
+h2 {
+  font-size: 1rem;
+}
+
+.status-pill,
+.panel-heading,
+.section-title,
+.export-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-pill {
+  min-height: 38px;
+  padding: 0 12px;
+  background: #e5f0e5;
+  color: #234b36;
+  font-weight: 800;
+}
+
+.control-band {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  gap: 16px;
+}
+
+.diagnosis-panel,
+.weather-panel,
+.wardrobe-surface,
+.recommend-surface,
+.daily-look-surface {
+  background: #fffaf2;
+  border: 1px solid #e2d9ca;
+}
+
+.diagnosis-panel,
+.weather-panel {
+  display: grid;
+  gap: 12px;
+  min-height: 140px;
+  padding: 18px;
+}
+
+.diagnosis-panel strong {
+  font-size: 1.45rem;
+}
+
+.muted {
+  color: #6f7873;
+  font-size: 0.9rem;
+}
+
+.palette-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(24px, 1fr));
+  gap: 6px;
+  max-width: 360px;
+}
+
+.swatch {
+  height: 30px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.segment {
+  min-height: 38px;
+  border: 1px solid #d6cbbb;
+  background: #fff;
+  color: #273532;
+  cursor: pointer;
+}
+
+.segment.active {
+  background: #243c35;
+  color: #fff;
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.1fr) minmax(320px, 0.95fr);
+  grid-template-areas:
+    "wardrobe recommend"
+    "wardrobe daily";
+  gap: 16px;
+  align-items: start;
+}
+
+.wardrobe-surface {
+  grid-area: wardrobe;
+}
+
+.recommend-surface {
+  grid-area: recommend;
+}
+
+.daily-look-surface {
+  grid-area: daily;
+}
+
+.section-title {
+  min-height: 52px;
+  padding: 0 16px;
+  border-bottom: 1px solid #e2d9ca;
+}
+
+.wardrobe-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: #e2d9ca;
+}
+
+.item-tile {
+  display: grid;
+  gap: 8px;
+  min-height: 190px;
+  padding: 12px;
+  background: #fffaf2;
+}
+
+.item-tile img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  background: #f1eee8;
+}
+
+.item-tile strong,
+.item-tile span,
+.outfit-copy strong,
+.outfit-copy span,
+.outfit-copy small {
+  display: block;
+}
+
+.item-tile strong {
+  font-size: 0.92rem;
+  line-height: 1.25;
+}
+
+.item-tile span {
+  color: #6f7873;
+  font-size: 0.82rem;
+}
+
+.recommend-list {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.outfit-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #e2d9ca;
+  background: #fff;
+}
+
+.outfit-card.selected {
+  border-color: #b9874d;
+  box-shadow: inset 0 0 0 1px #b9874d;
+}
+
+.outfit-main {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mini-stack {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  width: 92px;
+}
+
+.mini-stack img {
+  width: 100%;
+  aspect-ratio: 1 / 1.1;
+  object-fit: contain;
+  background: #f2efe9;
+}
+
+.outfit-copy {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.outfit-copy small {
+  overflow: hidden;
+  color: #64706b;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.score-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  padding: 0 8px;
+  background: #f5f3ef;
+  color: #56625d;
+  font-size: 0.82rem;
+}
+
+.score-label strong {
+  color: #1e2524;
+}
+
+.save-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 82px;
+  height: 38px;
+  border: 1px solid #273532;
+  background: #273532;
+  color: #fff;
+  cursor: pointer;
+}
+
+.save-button.saved {
+  background: #d8b56d;
+  border-color: #d8b56d;
+  color: #1e2524;
+}
+
+.daily-look {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px;
+}
+
+.canvas-preview {
+  position: relative;
+  width: 220px;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: #ece7dd;
+}
+
+.canvas-item {
+  position: absolute;
+  width: 44%;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 18px rgba(32, 36, 34, 0.12));
+}
+
+.canvas-item.item-0 {
+  top: 12%;
+  left: 28%;
+}
+
+.canvas-item.item-1 {
+  top: 43%;
+  left: 28%;
+}
+
+.canvas-item.item-2 {
+  right: 8%;
+  bottom: 6%;
+  width: 34%;
+}
+
+.daily-summary {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.daily-summary span,
+.daily-summary p {
+  color: #5d6863;
+  line-height: 1.45;
+}
+
+.export-state {
+  width: fit-content;
+  min-height: 36px;
+  padding: 0 10px;
+  background: #f1eee8;
+  color: #5b655f;
+}
+
+.export-state.ready {
+  background: #e5f0e5;
+  color: #234b36;
+}
+
+.empty-state {
+  padding: 20px;
+  color: #7a3e34;
+}
+
+@media (max-width: 980px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .rail {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    flex-direction: row;
+    align-items: center;
+    padding: 12px;
+  }
+
+  .rail-nav {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .rail-link {
+    justify-content: center;
+    padding: 0 6px;
+  }
+
+  .control-band,
+  .main-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas: none;
+  }
+
+  .wardrobe-surface,
+  .recommend-surface,
+  .daily-look-surface {
+    grid-area: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace {
+    padding: 14px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  h1 {
+    font-size: 1.55rem;
+  }
+
+  .rail-link {
+    font-size: 0;
+  }
+
+  .rail-link svg {
+    flex: 0 0 auto;
+  }
+
+  .wardrobe-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .outfit-card,
+  .outfit-main,
+  .daily-look {
+    grid-template-columns: 1fr;
+  }
+
+  .canvas-preview {
+    width: min(100%, 260px);
+  }
+}
