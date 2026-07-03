@@ -39,10 +39,19 @@ export const defaultWardrobePresetItems: ClothingItem[] = [
   makeCatalogItem('upper-ivory-top', 'upper', '쿨 아이보리 탑', '긴팔티', '#F7F4F2', '/catalog/upper_top_001.png'),
   makeCatalogItem('lower-navy-slacks', 'lower', '차분한 네이비 슬랙스', '슬랙스', '#3E4E73', '/catalog/v2_lower_pants_001.png'),
   makeCatalogItem('lower-gray-pants', 'lower', '라이트 그레이 팬츠', '슬랙스', '#A3A9AE', '/catalog/v2_lower_pants_002.png'),
-  makeCatalogItem('lower-denim-pants', 'lower', '뮤트 블루 데님', '청바지', '#557A8C', '/catalog/v2_lower_pants_003.png'),
+  makeCatalogItem('lower-denim-pants', 'lower', '뮤트 블루 데님', '청바지', '#557A8C', '/catalog/v2_lower_pants_003.png', {
+    isDenim: true,
+  }),
   makeCatalogItem('shoes-cream-sneakers', 'shoes', '크림 스니커즈', '스니커즈', '#F7F4F2', '/catalog/v2_shoe_shoe_001.png'),
   makeCatalogItem('shoes-silver-loafers', 'shoes', '실버 그레이 로퍼', '로퍼', '#C9CED6', '/catalog/v2_shoe_shoe_002.png'),
   makeCatalogItem('shoes-charcoal-sneakers', 'shoes', '차콜 스니커즈', '스니커즈', '#434A54', '/catalog/v2_shoe_shoe_003.png'),
+  // 추운 밴드(freezing~cool) 시연에서 아우터 없는 코디가 감점되지 않도록 큐레이션한 아우터. (도메인개념_고도화_v2.md §5.3)
+  makeCatalogItem('outer-charcoal-coat', 'outer', '차콜 울 코트', '울 코트', '#434A54', '/catalog/v2_outer_coat_001.png', {
+    warmthLevel: 'heavy',
+  }),
+  makeCatalogItem('outer-gray-trench', 'outer', '그레이 트렌치 코트', '트렌치 코트', '#A3A9AE', '/catalog/v2_outer_jacket_001.png', {
+    warmthLevel: 'warm',
+  }),
 ];
 
 export function validatePresetReadiness(request: PresetReadinessRequest): PresetReadinessResult {
@@ -67,6 +76,7 @@ function makeCatalogItem(
   typeLabel: string,
   hex: string,
   storedUrl: string,
+  options?: { warmthLevel?: ClothingItem['warmthLevel']; isDenim?: boolean },
 ): ClothingItem {
   return {
     id,
@@ -81,7 +91,8 @@ function makeCatalogItem(
       dominant: [{ name: displayName.split(' ')[0] ?? '대표색', hex, ratio: 1, isNeutral: isNeutralHex(hex) }],
     },
     pattern: 'solid',
-    warmthLevel: category === 'shoes' ? 'mid' : 'light',
+    warmthLevel: options?.warmthLevel ?? (category === 'shoes' ? 'mid' : 'light'),
+    isDenim: options?.isDenim,
     availability: 'owned',
     analysis: {
       status: 'confirmed',

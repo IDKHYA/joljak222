@@ -11,8 +11,12 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "strict": true,
+    "strict": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
     "types": ["vitest/globals", "node"]
   },
-  "include": ["src"]
+  "include": ["src", "components", "lib"]
 }

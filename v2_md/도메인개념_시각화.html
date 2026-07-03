@@ -1,0 +1,941 @@
+<!-- v2 색상 계산 모델과 저장 구조를 브라우저에서 점검하는 정적 문서입니다. -->
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>v2 색상 계산 모델 시각화</title>
+  <style>
+    :root {
+      --ink: #202423;
+      --muted: #64706c;
+      --line: #d9dedb;
+      --paper: #fbfaf7;
+      --panel: #ffffff;
+      --accent: #275d52;
+      --accent-2: #7b536d;
+      --accent-soft: #e5f1ed;
+      --warn: #8a4b25;
+      font-family: Pretendard, "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+    }
+
+    main {
+      display: grid;
+      gap: 28px;
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    header {
+      display: grid;
+      gap: 12px;
+      padding: 28px 0 12px;
+      border-bottom: 2px solid var(--ink);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      max-width: 980px;
+      font-size: clamp(2rem, 5vw, 4.2rem);
+      line-height: 1.02;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      font-size: 1.34rem;
+      line-height: 1.25;
+    }
+
+    h3 {
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+
+    p,
+    li,
+    td,
+    th {
+      line-height: 1.55;
+    }
+
+    code {
+      padding: 1px 5px;
+      background: #eef1ef;
+      border-radius: 4px;
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 0.9em;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th,
+    td {
+      padding: 9px 8px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .lead {
+      max-width: 960px;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .panel,
+    .season-card,
+    .metric-card,
+    .schema-card {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .callout {
+      background: var(--accent-soft);
+      border-color: #bfd9d1;
+    }
+
+    .warning {
+      background: #fff4e8;
+      border-color: #edc9a5;
+    }
+
+    .badge {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 8px;
+      background: #eef1ef;
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .flow-step {
+      display: grid;
+      gap: 7px;
+      min-height: 110px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      background: #f7f8f6;
+      border-radius: 8px;
+    }
+
+    .flow-step strong {
+      color: var(--accent);
+    }
+
+    .spectrum-wrap {
+      display: grid;
+      gap: 10px;
+    }
+
+    .spectrum-track {
+      position: relative;
+      height: 58px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg,
+          #d7263d 0%,
+          #f96822 12%,
+          #ffe04b 24%,
+          #7fc241 36%,
+          #00b8a9 49%,
+          #2458ff 64%,
+          #7a3df0 78%,
+          #ff2f92 90%,
+          #d7263d 100%);
+      overflow: hidden;
+    }
+
+    .spectrum-track::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.03) 48%, rgba(0, 0, 0, 0.18));
+      pointer-events: none;
+    }
+
+    .spectrum-point {
+      position: absolute;
+      top: 7px;
+      width: 2px;
+      height: 44px;
+      background: rgba(0, 0, 0, 0.72);
+    }
+
+    .spectrum-point span {
+      position: absolute;
+      left: 5px;
+      top: 2px;
+      min-width: max-content;
+      color: #111;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-shadow: 0 1px 8px rgba(255, 255, 255, 0.9);
+    }
+
+    .season-grid,
+    .region-grid,
+    .sample-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .season-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .season-head small {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .swatches {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .swatch {
+      min-height: 25px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      border-radius: 4px;
+    }
+
+    .trait-bars,
+    .metric-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .trait,
+    .metric-row {
+      display: grid;
+      grid-template-columns: 72px 1fr 54px;
+      gap: 8px;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .bar {
+      position: relative;
+      height: 8px;
+      overflow: hidden;
+      background: #e9ecea;
+      border-radius: 99px;
+    }
+
+    .bar span {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      background: var(--accent);
+    }
+
+    .signed-bar span {
+      left: 50%;
+    }
+
+    .mini-hues {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .mini-hue {
+      width: 20px;
+      height: 20px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      border-radius: 50%;
+    }
+
+    .sample-card {
+      display: grid;
+      grid-template-columns: 68px 1fr;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+    }
+
+    .sample-chip {
+      width: 68px;
+      min-height: 96px;
+      border: 1px solid rgba(0, 0, 0, 0.14);
+      border-radius: 8px;
+    }
+
+    .angle-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .angle-card {
+      display: grid;
+      gap: 8px;
+      min-height: 132px;
+      padding: 12px;
+      background: #f7f8f6;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .angle-demo {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .angle-demo span {
+      height: 36px;
+      border: 1px solid rgba(0, 0, 0, 0.14);
+      border-radius: 5px;
+    }
+
+    .weather-ladder {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(92px, 1fr));
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .weather-cell {
+      display: grid;
+      gap: 6px;
+      min-height: 112px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+    }
+
+    .weather-cell strong {
+      color: var(--accent);
+    }
+
+    .schema {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .schema-card ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .source-note,
+    .small {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    @media (max-width: 1060px) {
+      .flow,
+      .grid.two,
+      .grid.three,
+      .season-grid,
+      .region-grid,
+      .sample-grid,
+      .schema {
+        grid-template-columns: 1fr;
+      }
+
+      .angle-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 620px) {
+      main {
+        padding: 18px;
+      }
+
+      .angle-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .sample-card {
+        grid-template-columns: 1fr;
+      }
+
+      .sample-chip {
+        width: 100%;
+        min-height: 56px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <span class="badge">v2 color model</span>
+      <h1>색상, 퍼컬 시즌, 착용 날씨를 분리해서 계산하기</h1>
+      <p class="lead">이 문서는 색상 파트 HTML의 기준본이다. HEX는 저장값이고, 추천은 HEX -> RGB -> CIELAB -> LCh 변환과 CIEDE2000 색차, 색채 조화 각도, 보온 등급을 각각 다른 축으로 계산한다.</p>
+    </header>
+
+    <section class="panel callout">
+      <h2>계산 흐름</h2>
+      <div class="flow">
+        <article class="flow-step">
+          <strong>1. HEX</strong>
+          <span><code>#9F7F87</code> 같은 저장 색상이다.</span>
+        </article>
+        <article class="flow-step">
+          <strong>2. RGB</strong>
+          <span>sRGB 0~255 채널로 분리한다.</span>
+        </article>
+        <article class="flow-step">
+          <strong>3. CIELAB</strong>
+          <span>D65 기준으로 지각 균일 색공간에 놓는다.</span>
+        </article>
+        <article class="flow-step">
+          <strong>4. LCh</strong>
+          <span>L, C, h로 바꿔 시즌 영역과 스펙트럼을 계산한다.</span>
+        </article>
+        <article class="flow-step">
+          <strong>5. CIEDE2000</strong>
+          <span>Sharma 표준 절차로 팔레트와의 Delta E를 구한다.</span>
+        </article>
+      </div>
+      <p class="small">코드 기준 이름은 <code>hexToLab</code>, <code>hexToLch</code>, <code>deltaE2000</code>, <code>scoreColorForSeason</code>이다.</p>
+    </section>
+
+    <section class="panel">
+      <h2>새 스펙트럼과 시즌 중심점</h2>
+      <p class="source-note">아래 spectrum-track은 단순 무지개 막대가 아니라 각 시즌 팔레트의 평균 LCh hue 위치를 함께 표시한다. 무채색은 chroma가 낮아 hue 계산에서 제외한다.</p>
+      <div class="spectrum-wrap">
+        <div class="spectrum-track" id="spectrumTrack" aria-label="LCh hue 스펙트럼"></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>12계절 퍼스널컬러 팔레트와 Lab/LCh 요약</h2>
+      <p class="source-note">값 출처는 `v2/src/personalColorWorkbook.ts`의 `SEASON_PROFILES.palette`다.</p>
+      <div id="seasonGrid" class="season-grid"></div>
+    </section>
+
+    <section class="panel">
+      <h2>시즌별 LCh 영역 오버레이</h2>
+      <p class="source-note">seasonRegionGrid는 `seasonSpectrum.ts`의 §2.4 영역 모델과 같은 방식으로 lRange, cRange, chromaticHues를 산출한다. 실제 앱은 이 영역과 스와치 최근접 점수를 상한 결합한다.</p>
+      <div id="seasonRegionGrid" class="region-grid"></div>
+    </section>
+
+    <section class="grid two">
+      <article class="panel">
+        <h2>샘플 색상 점수</h2>
+        <p>여름뮤트 테스트 색상은 `soft-summer` 기준으로 계산한다. 팔레트 최근접 Delta E, 영역 멤버십, 최종 점수를 함께 보여준다.</p>
+        <div id="sampleScores" class="sample-grid"></div>
+      </article>
+
+      <article class="panel warning">
+        <h2>회피색 결정 경계</h2>
+        <p>v1에서 승계한 회피색 일부는 자기 팔레트와 매우 가깝다. 그래서 CIEDE2000 감점은 회피색이 팔레트보다 더 가까울 때만 적용한다. 팔레트 스와치 자신은 감점하지 않는다.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>규칙</th>
+              <th>처리</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>팔레트 Delta E <= 회피색 Delta E</td>
+              <td>감점 0점. 팔레트 우선.</td>
+            </tr>
+            <tr>
+              <td>회피색 Delta E 8 미만</td>
+              <td>-15점.</td>
+            </tr>
+            <tr>
+              <td>회피색 Delta E 15 이하</td>
+              <td>-8점.</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+    </section>
+
+    <section class="grid two">
+      <article class="panel">
+        <h2>색채이론이 추천에 쓰이는 방식</h2>
+        <p>퍼컬 축은 CIEDE2000 최근접 거리와 LCh 영역으로 계산한다. 코디 조화 축은 hue 각도, 명도 차, 채도 균형을 분리하고 50/30/20 비중으로 합친다.</p>
+        <div class="angle-grid">
+          <div class="angle-card">
+            <strong>단색 0~15도</strong>
+            <div class="angle-demo"><span style="background:#6E8FBE"></span><span style="background:#557A8C"></span></div>
+            <small>톤온톤. 안전하지만 밋밋할 수 있다.</small>
+          </div>
+          <div class="angle-card">
+            <strong>유사색 16~45도</strong>
+            <div class="angle-demo"><span style="background:#7FC241"></span><span style="background:#00B8A9"></span></div>
+            <small>자연스럽고 이어지는 조합이다.</small>
+          </div>
+          <div class="angle-card">
+            <strong>긴장 46~90도</strong>
+            <div class="angle-demo"><span style="background:#FF8C00"></span><span style="background:#8FD400"></span></div>
+            <small>어중간한 거리라 충돌 가능성이 있다.</small>
+          </div>
+          <div class="angle-card">
+            <strong>삼각 91~135도</strong>
+            <div class="angle-demo"><span style="background:#D7263D"></span><span style="background:#2458FF"></span></div>
+            <small>다채롭지만 정리가 필요하다.</small>
+          </div>
+          <div class="angle-card">
+            <strong>보색 136~180도</strong>
+            <div class="angle-demo"><span style="background:#0047AB"></span><span style="background:#D9A404"></span></div>
+            <small>대비가 강하고 선명하다.</small>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <h2>사진 없이 테스트하는 여름뮤트 데이터</h2>
+        <p>앱에는 가상의 여름뮤트 사용자 데이터가 들어간다. 저장값이 없으면 `soft-summer` 결과와 이력이 기본으로 저장되어 촬영 없이도 옷장, 추천, 저장 코디 흐름을 확인할 수 있다.</p>
+        <table>
+          <tbody>
+            <tr>
+              <th>퍼컬</th>
+              <td>여름뮤트, `soft-summer`.</td>
+            </tr>
+            <tr>
+              <th>Top2</th>
+              <td>트루 서머, `true-summer`.</td>
+            </tr>
+            <tr>
+              <th>저장 위치</th>
+              <td>`localStorage`의 `integrated_personal_color_result`, `integrated_personal_color_history`.</td>
+            </tr>
+            <tr>
+              <th>옷장 저장</th>
+              <td>`integrated_wardrobes`, `integrated_clothing_items`, `integrated_saved_outfits`.</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+    </section>
+
+    <section class="panel">
+      <h2>WeatherBand와 WarmthLevel 매핑</h2>
+      <div class="weather-ladder" id="weatherLadder"></div>
+    </section>
+
+    <section class="panel">
+      <h2>의류가 가져야 하는 스키마</h2>
+      <div class="schema">
+        <article class="schema-card">
+          <span class="badge">identity</span>
+          <h3>출처와 이미지</h3>
+          <ul>
+            <li><code>id</code></li>
+            <li><code>wardrobeId</code></li>
+            <li><code>sourceType</code></li>
+            <li><code>imageUrl</code></li>
+            <li><code>catalogItemId</code></li>
+          </ul>
+        </article>
+        <article class="schema-card">
+          <span class="badge">color</span>
+          <h3>색상 계약</h3>
+          <ul>
+            <li><code>representativeColor</code></li>
+            <li><code>representativeHex</code></li>
+            <li><code>dominantColors</code></li>
+            <li><code>isNeutral</code></li>
+            <li><code>isDenim</code></li>
+          </ul>
+        </article>
+        <article class="schema-card">
+          <span class="badge">attribute</span>
+          <h3>의류 속성</h3>
+          <ul>
+            <li><code>category</code></li>
+            <li><code>type</code></li>
+            <li><code>material</code></li>
+            <li><code>patternType</code></li>
+            <li><code>denimWash</code></li>
+          </ul>
+        </article>
+        <article class="schema-card">
+          <span class="badge">decision</span>
+          <h3>추천 입력</h3>
+          <ul>
+            <li><code>seasonTag</code></li>
+            <li><code>availabilityStatus</code></li>
+            <li><code>segmentation.colors</code></li>
+            <li><code>createdAt</code></li>
+          </ul>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const seasons = [
+      { id: 'light-spring', ko: '라이트 스프링', family: 'Spring', traits: [0.72, 0.92, 0.45, -0.2], palette: ['#FFF6D9','#FDF1D0','#EFD8B8','#D9C2A2','#FFD1B8','#FFC7A3','#F7B39A','#F59A8A','#F8B9BE','#FFE68A','#F8EF9A','#FFF1A6','#D8E8A8','#C9E27B','#B8E2A5','#B9E8D4','#AFE9E4','#A8E3EB','#8FDDE4','#73D7D3','#6ECBC2','#FF8F70','#FBC28B','#F2B577'] },
+      { id: 'true-spring', ko: '트루 스프링', family: 'Spring', traits: [1, 0.35, 0.62, 0.15], palette: ['#FFF0C2','#FEE6A6','#E5C18C','#C99B63','#FFA56B','#FFB07C','#FF7F5F','#F96822','#E9552B','#F7B500','#F4C430','#FFE04B','#B7D94D','#7FC241','#53B84A','#2EAE7D','#00B8A9','#4CD9D0','#1E9C98','#1C8B8F','#FF5C64','#F04E37','#E97432','#D9B55A'] },
+      { id: 'bright-spring', ko: '브라이트 스프링', family: 'Spring', traits: [0.92, 0.32, 1, 0.7], palette: ['#FFF5E1','#F2D0A7','#C89150','#B97A3D','#FFB38A','#FF9A56','#FF6F61','#FF5A5F','#F9423A','#FF7A00','#FF8C00','#FFD200','#F3F12F','#CBEA00','#8FD400','#3CB043','#00B36B','#00D7C9','#00CFCF','#00B6C7','#4FB6FF','#FF6FAE','#FF4F8B','#FFB000'] },
+      { id: 'light-summer', ko: '라이트 서머', family: 'Summer', traits: [-0.74, 0.95, -0.2, -0.35], palette: ['#F8F6F3','#F2ECE8','#E7D9D2','#C7B8B1','#F4D7E4','#EEC6D8','#DDB7C7','#E6A8B8','#DEC8EA','#D5CCF3','#C7D4F6','#C6DBF2','#BFDDF0','#B8E5E8','#C5E4DE','#C7D8C7','#D3E7D4','#A9D7D9','#A8C3E7','#8FA9D5','#C88FA9','#C9A9C2','#AAB6C9','#BDC9D6'] },
+      { id: 'true-summer', ko: '트루 서머', family: 'Summer', traits: [-1, 0.28, -0.58, 0.12], palette: ['#F7F4F2','#E9E1DC','#C7B7AE','#9E8F88','#D8A2B3','#C68FA4','#B17D9C','#A9658D','#BBA4D7','#9A87BF','#8399C8','#6E8FBE','#6E95A8','#557A8C','#4E7F87','#5E887C','#8AA08A','#A4BDAE','#7B627D','#7E4E67','#A54361','#3E4E73','#687181','#A3A9AE'] },
+      { id: 'soft-summer', ko: '소프트 서머', family: 'Summer', traits: [-0.62, 0.2, -1, -0.38], palette: ['#F3EDEB','#D9CDC6','#B7ACA7','#8A7F7A','#C89FA4','#B88C93','#9F7F87','#8C6572','#BDAFC3','#A693AE','#9AA7C7','#7D8EA9','#6E879C','#8898A6','#6D9793','#8CA59A','#9CAB8E','#7E8871','#6F6578','#4E5A72','#D1B8B7','#D7C3D0','#B9BEC4','#6B7077'] },
+      { id: 'soft-autumn', ko: '소프트 오텀', family: 'Autumn', traits: [0.62, 0.08, -0.55, -0.05], palette: ['#F2E5D3','#DDD0BC','#CBB89E','#A18E77','#E8C1A0','#DCA685','#C9876B','#C67B62','#D08D7F','#C8A54B','#D8BF72','#B5A155','#A9B08C','#8C9165','#9E9F79','#80917F','#5E8C8A','#6E9997','#4F7476','#7FA9A6','#A86F49','#AA5C3F','#B3725B','#5E6B4E'] },
+      { id: 'true-autumn', ko: '트루 오텀', family: 'Autumn', traits: [0.96, -0.25, 0.12, 0.18], palette: ['#F6E7BF','#C69C6D','#A97C50','#5E3E2B','#D9742A','#C95D22','#E46D2E','#A84A2A','#B7462F','#D9A404','#B8891C','#C99820','#7A7A2E','#5D6B2B','#42552D','#2F5B3D','#0F6B62','#006D6F','#1B5661','#5C3B44','#7A4A2C','#6B3526','#8B4C2F','#8C7B42'] },
+      { id: 'dark-autumn', ko: '다크 오텀', family: 'Autumn', traits: [0.76, -0.9, -0.18, 0.35], palette: ['#EEE1C7','#B88A61','#7A5A3A','#3E2A1F','#A34E2C','#8C3F24','#914F39','#662F2A','#B54C28','#A37714','#8B6A18','#8C6239','#596126','#3E4A24','#284131','#1E4A4D','#204D57','#0E5966','#4B314C','#43283A','#5A2D23','#4A342A','#323728','#7C5A3B'] },
+      { id: 'dark-winter', ko: '다크 윈터', family: 'Winter', traits: [-0.88, -0.55, 0.35, 0.78], palette: ['#F5F7FA','#DDE5EE','#8E97A4','#2E323A','#4B2E4A','#6D2240','#8B2039','#A61E2D','#402D54','#5B3E87','#1E2A5A','#0F4C81','#0C6678','#006B5C','#0E4F43','#007A6C','#B0006D','#8E2C6C','#F0DDE8','#E4E1F7','#DCE9F8','#B8C0CC','#111111','#1F2847'] },
+      { id: 'true-winter', ko: '트루 윈터', family: 'Winter', traits: [-1, 0.05, 0.72, 0.95], palette: ['#FFFFFF','#000000','#C9CED6','#434A54','#B80F2E','#9E0B2E','#C11F6A','#CC1177','#B0005B','#6E2D91','#1C4FA1','#0047AB','#0F52BA','#007F5F','#008C99','#006C8E','#F7D9E7','#E7E1F8','#DDEEFF','#DDF3F0','#F5F7B2','#00AEEF','#FF1493','#D4001A'] },
+      { id: 'bright-winter', ko: '브라이트 윈터', family: 'Winter', traits: [-0.72, 0.22, 1, 1], palette: ['#FFFFFF','#000000','#D0D7E2','#3C4655','#FF2F92','#F50087','#D10073','#D7263D','#FF3B30','#F6F930','#B7FF00','#00A86B','#00B140','#00D4D8','#00B7EB','#2458FF','#2643C4','#7A3DF0','#ECE7FF','#E3F2FF','#E5FFF7','#FF6F61','#FF4FA3','#C441FF'] }
+    ];
+
+    const NEUTRAL_CHROMA_LIMIT = 12;
+    const REGION_MARGIN_L = 6;
+    const REGION_MARGIN_C = 5;
+
+    function hexToRgb(hex) {
+      const normalized = hex.replace('#', '');
+      return [
+        Number.parseInt(normalized.slice(0, 2), 16),
+        Number.parseInt(normalized.slice(2, 4), 16),
+        Number.parseInt(normalized.slice(4, 6), 16),
+      ];
+    }
+
+    function rgbToLab([r, g, b]) {
+      const linear = (channel) => {
+        const c = channel / 255;
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      };
+      const rl = linear(r);
+      const gl = linear(g);
+      const bl = linear(b);
+      const x = rl * 0.4124564 + gl * 0.3575761 + bl * 0.1804375;
+      const y = rl * 0.2126729 + gl * 0.7151522 + bl * 0.072175;
+      const z = rl * 0.0193339 + gl * 0.119192 + bl * 0.9503041;
+      const f = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+      const fx = f(x / 0.95047);
+      const fy = f(y);
+      const fz = f(z / 1.08883);
+      return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+    }
+
+    function labToLch(lab) {
+      const C = Math.sqrt(lab.a * lab.a + lab.b * lab.b);
+      let h = (Math.atan2(lab.b, lab.a) * 180) / Math.PI;
+      if (h < 0) h += 360;
+      return { L: lab.L, C, h };
+    }
+
+    function hexToLab(hex) {
+      return rgbToLab(hexToRgb(hex));
+    }
+
+    function hexToLch(hex) {
+      return labToLch(hexToLab(hex));
+    }
+
+    function deltaE2000(lab1, lab2) {
+      const deg2rad = (deg) => (deg * Math.PI) / 180;
+      const rad2deg = (rad) => (rad * 180) / Math.PI;
+      const C1 = Math.sqrt(lab1.a * lab1.a + lab1.b * lab1.b);
+      const C2 = Math.sqrt(lab2.a * lab2.a + lab2.b * lab2.b);
+      const meanC = (C1 + C2) / 2;
+      const G = 0.5 * (1 - Math.sqrt(meanC ** 7 / (meanC ** 7 + 25 ** 7)));
+      const a1p = (1 + G) * lab1.a;
+      const a2p = (1 + G) * lab2.a;
+      const C1p = Math.sqrt(a1p * a1p + lab1.b * lab1.b);
+      const C2p = Math.sqrt(a2p * a2p + lab2.b * lab2.b);
+      const hp = (ap, b) => {
+        if (ap === 0 && b === 0) return 0;
+        const h = rad2deg(Math.atan2(b, ap));
+        return h < 0 ? h + 360 : h;
+      };
+      const h1p = hp(a1p, lab1.b);
+      const h2p = hp(a2p, lab2.b);
+      const dLp = lab2.L - lab1.L;
+      const dCp = C2p - C1p;
+      let dhp = 0;
+      if (C1p * C2p !== 0) {
+        dhp = h2p - h1p;
+        if (dhp > 180) dhp -= 360;
+        else if (dhp < -180) dhp += 360;
+      }
+      const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin(deg2rad(dhp) / 2);
+      const meanLp = (lab1.L + lab2.L) / 2;
+      const meanCp = (C1p + C2p) / 2;
+      let meanHp = h1p + h2p;
+      if (C1p * C2p !== 0) {
+        const diff = Math.abs(h1p - h2p);
+        if (diff <= 180) meanHp = (h1p + h2p) / 2;
+        else if (h1p + h2p < 360) meanHp = (h1p + h2p + 360) / 2;
+        else meanHp = (h1p + h2p - 360) / 2;
+      }
+      const T = 1 - 0.17 * Math.cos(deg2rad(meanHp - 30)) + 0.24 * Math.cos(deg2rad(2 * meanHp)) + 0.32 * Math.cos(deg2rad(3 * meanHp + 6)) - 0.2 * Math.cos(deg2rad(4 * meanHp - 63));
+      const dTheta = 30 * Math.exp(-(((meanHp - 275) / 25) ** 2));
+      const Rc = 2 * Math.sqrt(meanCp ** 7 / (meanCp ** 7 + 25 ** 7));
+      const Sl = 1 + (0.015 * (meanLp - 50) ** 2) / Math.sqrt(20 + (meanLp - 50) ** 2);
+      const Sc = 1 + 0.045 * meanCp;
+      const Sh = 1 + 0.015 * meanCp * T;
+      const Rt = -Math.sin(deg2rad(2 * dTheta)) * Rc;
+      return Math.sqrt((dLp / Sl) ** 2 + (dCp / Sc) ** 2 + (dHp / Sh) ** 2 + Rt * (dCp / Sc) * (dHp / Sh));
+    }
+
+    function hueAngleDistance(a, b) {
+      const diff = Math.abs(a - b) % 360;
+      return Math.min(diff, 360 - diff);
+    }
+
+    function percentile(sortedValues, p) {
+      const index = (sortedValues.length - 1) * p;
+      const lower = Math.floor(index);
+      const upper = Math.ceil(index);
+      if (lower === upper) return sortedValues[lower];
+      const weight = index - lower;
+      return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+    }
+
+    function trapezoidMembership(value, lo, hi, slope) {
+      if (value >= lo && value <= hi) return 1;
+      const distance = value < lo ? lo - value : value - hi;
+      if (distance >= slope) return 0;
+      return 1 - distance / slope;
+    }
+
+    function getSeasonRegion(season) {
+      const lchList = season.palette.map(hexToLch);
+      const lValues = lchList.map((lch) => lch.L).sort((a, b) => a - b);
+      const cValues = lchList.map((lch) => lch.C).sort((a, b) => a - b);
+      const chromaticHues = lchList.filter((lch) => lch.C >= NEUTRAL_CHROMA_LIMIT).map((lch) => lch.h);
+      return {
+        lRange: [percentile(lValues, 0.1) - REGION_MARGIN_L, percentile(lValues, 0.9) + REGION_MARGIN_L],
+        cRange: [Math.max(0, percentile(cValues, 0.1) - REGION_MARGIN_C), percentile(cValues, 0.9) + REGION_MARGIN_C],
+        chromaticHues,
+      };
+    }
+
+    function regionMembership(lch, region) {
+      const memL = trapezoidMembership(lch.L, region.lRange[0], region.lRange[1], 8);
+      const memC = trapezoidMembership(lch.C, region.cRange[0], region.cRange[1], 6);
+      let memH = 1;
+      if (lch.C >= NEUTRAL_CHROMA_LIMIT) {
+        memH = region.chromaticHues.reduce((best, hue) => {
+          const distance = hueAngleDistance(lch.h, hue);
+          const membership = distance <= 12 ? 1 : Math.max(0, 1 - (distance - 12) / 10);
+          return Math.max(best, membership);
+        }, 0);
+      }
+      return Math.min(memL, memC, memH);
+    }
+
+    function swatchScoreFromDeltaE(distance) {
+      if (distance <= 5) return 100 - (distance / 5) * 8;
+      if (distance <= 12) return 92 - ((distance - 5) / 7) * 14;
+      if (distance <= 22) return 78 - ((distance - 12) / 10) * 18;
+      if (distance <= 35) return 60 - ((distance - 22) / 13) * 18;
+      return Math.max(25, 42 - (distance - 35) * (17 / 25));
+    }
+
+    function scoreColorForSeason(hex, season) {
+      const lab = hexToLab(hex);
+      const lch = labToLch(lab);
+      const labs = season.palette.map(hexToLab);
+      const nearestDeltaE = labs.reduce((best, swatch) => Math.min(best, deltaE2000(lab, swatch)), Number.POSITIVE_INFINITY);
+      const swatchScore = swatchScoreFromDeltaE(nearestDeltaE);
+      const regionScore = 100 * regionMembership(lch, getSeasonRegion(season));
+      return {
+        lab,
+        lch,
+        nearestDeltaE,
+        swatchScore,
+        regionScore,
+        score: Math.max(swatchScore, 0.92 * regionScore),
+      };
+    }
+
+    function hueToColor(hue) {
+      return `hsl(${Math.round(hue)} 70% 58%)`;
+    }
+
+    function formatRange([lo, hi]) {
+      return `${lo.toFixed(1)} ~ ${hi.toFixed(1)}`;
+    }
+
+    const traitNames = ['온도', '명도', '선명도', '대비'];
+    const seasonGrid = document.querySelector('#seasonGrid');
+    const seasonRegionGrid = document.querySelector('#seasonRegionGrid');
+
+    seasonGrid.innerHTML = seasons.map((season) => {
+      const lchList = season.palette.map(hexToLch);
+      const avgL = lchList.reduce((sum, value) => sum + value.L, 0) / lchList.length;
+      const avgC = lchList.reduce((sum, value) => sum + value.C, 0) / lchList.length;
+      return `
+        <article class="season-card">
+          <div class="season-head">
+            <div>
+              <h3>${season.ko}</h3>
+              <small>${season.id} · ${season.family}</small>
+            </div>
+            <span class="badge">${season.palette.length} HEX</span>
+          </div>
+          <div class="trait-bars">
+            ${season.traits.map((value, index) => {
+              const left = value < 0 ? 50 + value * 50 : 50;
+              const width = Math.abs(value) * 50;
+              return `<div class="trait"><span>${traitNames[index]}</span><div class="bar signed-bar"><span style="left:${left}%;width:${width}%"></span></div><span>${value.toFixed(2)}</span></div>`;
+            }).join('')}
+          </div>
+          <div class="metric-list">
+            <div class="metric-row"><span>평균 L*</span><div class="bar"><span style="width:${avgL}%"></span></div><span>${avgL.toFixed(1)}</span></div>
+            <div class="metric-row"><span>평균 C*</span><div class="bar"><span style="width:${Math.min(avgC, 100)}%"></span></div><span>${avgC.toFixed(1)}</span></div>
+          </div>
+          <div class="swatches">${season.palette.map((hex) => `<span class="swatch" style="background:${hex}" title="${hex}"></span>`).join('')}</div>
+        </article>
+      `;
+    }).join('');
+
+    seasonRegionGrid.innerHTML = seasons.map((season) => {
+      const region = getSeasonRegion(season);
+      const majorHues = region.chromaticHues.slice(0, 10);
+      return `
+        <article class="metric-card">
+          <div class="season-head">
+            <div>
+              <h3>${season.ko}</h3>
+              <small>${season.id}</small>
+            </div>
+            <span class="badge">LCh 영역</span>
+          </div>
+          <table>
+            <tbody>
+              <tr><th>lRange</th><td>${formatRange(region.lRange)}</td></tr>
+              <tr><th>cRange</th><td>${formatRange(region.cRange)}</td></tr>
+              <tr><th>chromaticHues</th><td>${region.chromaticHues.length}개</td></tr>
+            </tbody>
+          </table>
+          <div class="mini-hues">${majorHues.map((hue) => `<span class="mini-hue" style="background:${hueToColor(hue)}" title="${hue.toFixed(1)}도"></span>`).join('')}</div>
+        </article>
+      `;
+    }).join('');
+
+    const spectrumTrack = document.querySelector('#spectrumTrack');
+    spectrumTrack.innerHTML = seasons.map((season) => {
+      const region = getSeasonRegion(season);
+      const avgHue = region.chromaticHues.reduce((sum, hue) => sum + hue, 0) / region.chromaticHues.length;
+      return `<i class="spectrum-point" style="left:${avgHue / 3.6}%"><span>${season.ko}</span></i>`;
+    }).join('');
+
+    const softSummer = seasons.find((season) => season.id === 'soft-summer');
+    const samples = [
+      ['#9F7F87', '여름뮤트 장미빛'],
+      ['#6E879C', '저채도 블루그레이'],
+      ['#F96822', '고채도 오렌지'],
+      ['#808080', '중립 그레이'],
+    ];
+
+    document.querySelector('#sampleScores').innerHTML = samples.map(([hex, label]) => {
+      const result = scoreColorForSeason(hex, softSummer);
+      return `
+        <article class="sample-card">
+          <div class="sample-chip" style="background:${hex}"></div>
+          <div class="grid">
+            <div>
+              <h3>${label}</h3>
+              <small>${hex}</small>
+            </div>
+            <table>
+              <tbody>
+                <tr><th>Lab</th><td>L ${result.lab.L.toFixed(1)}, a ${result.lab.a.toFixed(1)}, b ${result.lab.b.toFixed(1)}</td></tr>
+                <tr><th>LCh</th><td>L ${result.lch.L.toFixed(1)}, C ${result.lch.C.toFixed(1)}, h ${result.lch.h.toFixed(1)}</td></tr>
+                <tr><th>Delta E</th><td>${result.nearestDeltaE.toFixed(2)}</td></tr>
+                <tr><th>최종 점수</th><td>${result.score.toFixed(1)}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    const weatherRows = [
+      ['freezing', '4도 이하', 'heavy', '패딩, 울 코트'],
+      ['cold', '5~8도', 'heavy / warm', '코트, 두꺼운 니트'],
+      ['chilly', '9~11도', 'warm / mid', '재킷, 니트'],
+      ['cool', '12~16도', 'mid / warm', '블레이저, 긴팔'],
+      ['mild', '17~19도', 'mid / light', '셔츠, 가디건'],
+      ['warm', '20~22도', 'light / mid', '얇은 셔츠, 반팔'],
+      ['hot', '23~27도', 'very-light / light', '반팔, 반바지'],
+      ['very-hot', '28도 이상', 'very-light', '민소매, 샌들'],
+    ];
+
+    document.querySelector('#weatherLadder').innerHTML = weatherRows.map(([band, temp, warmth, items]) => `
+      <div class="weather-cell">
+        <strong>${band}</strong>
+        <span>${temp}</span>
+        <code>${warmth}</code>
+        <small>${items}</small>
+      </div>
+    `).join('');
+  </script>
+</body>
+</html>

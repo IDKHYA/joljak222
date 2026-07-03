@@ -1,0 +1,76 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - button "F Fitly Personal_Color_Project" [ref=e5] [cursor=pointer]:
+      - generic [ref=e6]: F
+      - generic [ref=e7]:
+        - strong [ref=e8]: Fitly
+        - generic [ref=e9]: Personal_Color_Project
+    - navigation [ref=e10]:
+      - button "홈" [ref=e11] [cursor=pointer]:
+        - img [ref=e12]
+        - generic [ref=e15]: 홈
+      - button "옷장" [ref=e16] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e20]: 옷장
+      - button "AI 추천" [ref=e21] [cursor=pointer]:
+        - img [ref=e22]
+        - generic [ref=e25]: AI 추천
+      - button "데일리룩" [active] [ref=e26] [cursor=pointer]:
+        - img [ref=e27]
+        - generic [ref=e29]: 데일리룩
+      - button "설정" [ref=e30] [cursor=pointer]:
+        - img [ref=e31]
+        - generic [ref=e34]: 설정
+    - button "내 프로필 트루 서머" [ref=e35] [cursor=pointer]:
+      - img [ref=e37]
+      - generic [ref=e40]:
+        - strong [ref=e41]: 내 프로필
+        - generic [ref=e42]: 트루 서머
+  - main [ref=e44]:
+    - generic [ref=e269]:
+      - generic [ref=e270]:
+        - generic [ref=e271]:
+          - img [ref=e272]
+          - generic [ref=e274]:
+            - heading "데일리룩" [level=1] [ref=e275]
+            - paragraph [ref=e276]: 추천 화면에서 저장한 조합을 모아보고, 데일리룩 만들기에서 하나의 룩 이미지로 편집합니다.
+        - button "데일리룩 만들기" [ref=e277] [cursor=pointer]:
+          - img [ref=e278]
+          - text: 데일리룩 만들기
+      - generic [ref=e279]:
+        - generic [ref=e280]:
+          - img [ref=e281]
+          - textbox [ref=e284]:
+            - /placeholder: 코디명, 옷 종류, 색상, 옷장 검색
+        - generic [ref=e285]:
+          - text: 정렬
+          - combobox "정렬" [ref=e286]:
+            - option "최근순" [selected]
+            - option "점수순"
+            - option "날씨순"
+            - option "이름순"
+      - generic [ref=e287]:
+        - article [ref=e288]:
+          - generic [ref=e289]:
+            - generic [ref=e290]:
+              - heading "새 데일리룩" [level=3] [ref=e291]
+              - paragraph [ref=e292]: 데일리 · 상관없음 · 0점 · 완성됨
+            - button "삭제" [ref=e300] [cursor=pointer]
+          - img "새 데일리룩 완성 이미지" [ref=e301]
+          - group [ref=e302]:
+            - generic "자세히 보기" [ref=e303] [cursor=pointer]
+          - button "데일리룩 만들기" [ref=e304] [cursor=pointer]:
+            - img [ref=e305]
+            - text: 데일리룩 만들기
+        - article [ref=e307]:
+          - generic [ref=e308]:
+            - generic [ref=e309]:
+              - heading "선명한 대비 데일리 코디" [level=3] [ref=e310]
+              - paragraph [ref=e311]: 데일리 · 12~16도 · 83점 · 완성됨
+            - button "삭제" [ref=e316] [cursor=pointer]
+          - img "선명한 대비 데일리 코디 완성 이미지" [ref=e317]
+          - group [ref=e318]:
+            - generic "자세히 보기" [ref=e319] [cursor=pointer]
+          - button "데일리룩 만들기" [ref=e320] [cursor=pointer]:
+            - img [ref=e321]
+            - text: 데일리룩 만들기

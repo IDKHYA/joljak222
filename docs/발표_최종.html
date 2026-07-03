@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<!-- Fitly 추천 알고리즘 고도화 발표용 단일 페이지 보고서 (화이트 테마, 왜→상세→향후 순) -->
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fitly · 추천 알고리즘 고도화 발표 보고서</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0f172a;
+      --body: #475569;
+      --muted: #64748b;
+      --line: #e5e7eb;
+      --line-soft: #eef2f7;
+      --bg: #ffffff;
+      --bg-soft: #f8fafc;
+      --accent: #4f46e5;
+      --accent-soft: #eef2ff;
+      --good: #059669;
+      --good-soft: #ecfdf5;
+      --warn: #b45309;
+      --bad: #e11d48;
+      --bad-soft: #fff1f2;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--body);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4 { color: var(--ink); letter-spacing: -0.01em; }
+    .section { scroll-margin-top: 84px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 16px; }
+    .chip { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
+    .nav-link { color: var(--muted); border-left: 2px solid transparent; transition: all .15s; }
+    .nav-link:hover { color: var(--ink); background: var(--bg-soft); }
+    .nav-link.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--ink); }
+    .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 720px) { .ba-grid { grid-template-columns: 1fr; } }
+    .ba-box { border-radius: 12px; padding: 16px; font-size: 13px; line-height: 1.65; }
+    .ba-before { background: var(--bad-soft); border: 1px solid #fecdd3; }
+    .ba-after { background: var(--good-soft); border: 1px solid #a7f3d0; }
+    table.clean { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.clean th { text-align: left; color: var(--muted); font-weight: 600; padding: 10px 12px; border-bottom: 2px solid var(--line); font-size: 12px; }
+    table.clean td { padding: 11px 12px; border-bottom: 1px solid var(--line-soft); color: var(--ink); }
+    table.clean tr:last-child td { border-bottom: none; }
+    .bar-track { height: 12px; background: var(--bg-soft); border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
+    .bar-fill { height: 100%; border-radius: 999px; }
+    @media print {
+      .no-print { display: none !important; }
+      .section { page-break-inside: avoid; }
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-gray-200 no-print">
+    <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">F</div>
+        <div>
+          <div class="text-[11px] font-bold tracking-widest text-indigo-600 uppercase">Personal Color AI Wardrobe</div>
+          <div class="text-base font-bold text-slate-900 -mt-0.5">Fitly · 추천 알고리즘 고도화 보고서</div>
+        </div>
+      </div>
+      <div class="hidden sm:flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+        <span class="px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200">기준선 대비 26 커밋</span>
+        <span class="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">테스트 23개 통과</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-6xl mx-auto px-5 py-10 flex gap-10">
+
+    <!-- Sidebar TOC -->
+    <aside class="hidden lg:block w-56 shrink-0 no-print">
+      <nav class="sticky top-24 text-sm space-y-0.5">
+        <p class="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">목차</p>
+        <a href="#overview" class="nav-link block px-3 py-2 rounded-r-lg">1 · 프로젝트 개요</a>
+        <a href="#why" class="nav-link block px-3 py-2 rounded-r-lg">2 · 왜 개선·발전했는가</a>
+        <p class="px-3 pt-4 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">개선 상세</p>
+        <a href="#d1" class="nav-link block px-3 py-2 rounded-r-lg">3 · 엔진 모듈화·테스트</a>
+        <a href="#d2" class="nav-link block px-3 py-2 rounded-r-lg">4 · 4축 점수 설계</a>
+        <a href="#d3" class="nav-link block px-3 py-2 rounded-r-lg">5 · 구간형 색거리</a>
+        <a href="#d4" class="nav-link block px-3 py-2 rounded-r-lg">6 · 색상 조화 3요소</a>
+        <a href="#d5" class="nav-link block px-3 py-2 rounded-r-lg">7 · ML 계절 분류</a>
+        <a href="#d6" class="nav-link block px-3 py-2 rounded-r-lg">8 · 단일 옷·성능</a>
+        <a href="#d7" class="nav-link block px-3 py-2 rounded-r-lg">9 · 동적 설명 생성</a>
+        <p class="px-3 pt-4 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">추가 발전</p>
+        <a href="#evo" class="nav-link block px-3 py-2 rounded-r-lg">10 · 데일리룩 보드</a>
+        <p class="px-3 pt-4 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">마무리</p>
+        <a href="#future" class="nav-link block px-3 py-2 rounded-r-lg">11 · 향후 계획</a>
+      </nav>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 min-w-0 space-y-16">
+
+      <!-- 1. OVERVIEW -->
+      <section id="overview" class="section">
+        <span class="chip text-indigo-600 uppercase">01 Overview</span>
+        <h1 class="text-3xl font-extrabold mt-2 mb-3">프로젝트 개요</h1>
+        <p class="text-[15px] leading-relaxed text-slate-600 max-w-2xl">
+          <strong class="text-slate-900">Fitly</strong>는 얼굴 사진으로 12계절 퍼스널컬러를 진단하고, 보유 의류와 카탈로그를
+          그 결과에 맞춰 추천하는 퍼스널컬러 AI 옷장 어시스턴트입니다. 진단·분석·추천 세 모듈이 하나의 점수 체계로 연결됩니다.
+        </p>
+
+        <div class="grid sm:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5">
+            <div class="text-2xl">🎨</div>
+            <h4 class="font-bold mt-2 text-[15px]">① 퍼스널컬러 진단</h4>
+            <p class="text-[13px] text-slate-600 mt-1.5 leading-relaxed">MediaPipe 15개 얼굴 ROI에서 Lab 4축 특징을 뽑고, 5문항 설문과 융합해 12계절을 판정합니다.</p>
+          </div>
+          <div class="card p-5">
+            <div class="text-2xl">🧥</div>
+            <h4 class="font-bold mt-2 text-[15px]">② 의류 이미지 분석</h4>
+            <p class="text-[13px] text-slate-600 mt-1.5 leading-relaxed">FastAPI 서버에서 SegFormer로 누끼를 따고, Random Forest가 계절·색상·카테고리를 자동 분류합니다.</p>
+          </div>
+          <div class="card p-5">
+            <div class="text-2xl">⚖️</div>
+            <h4 class="font-bold mt-2 text-[15px]">③ 추천 엔진</h4>
+            <p class="text-[13px] text-slate-600 mt-1.5 leading-relaxed">퍼스널컬러·색상 조화·날씨·착용 안정성 4축을 가중합해 코디 점수를 산출합니다.</p>
+          </div>
+        </div>
+
+        <div class="card p-5 mt-4 bg-slate-50/60">
+          <p class="text-[13px] text-slate-600 leading-relaxed">
+            이번 고도화는 <span class="kbd">personalcolorcheckpage</span> 기준 커밋에서 <strong class="text-slate-900">26개 커밋</strong>에 걸쳐 진행됐습니다.
+            상태·UI·추천 로직이 한 파일에 섞여 있던 <strong class="text-slate-900">App.tsx 3,546줄</strong>을 기능별 모듈로 분리하는 것이 출발점이었습니다.
+          </p>
+        </div>
+      </section>
+
+      <!-- 2. WHY -->
+      <section id="why" class="section">
+        <span class="chip text-indigo-600 uppercase">02 Motivation</span>
+        <h1 class="text-3xl font-extrabold mt-2 mb-3">왜 개선·발전했는가</h1>
+        <p class="text-[15px] leading-relaxed text-slate-600 max-w-2xl">
+          이번 작업은 두 방향으로 나뉩니다. 하나는 핵심인 <strong class="text-slate-900">추천 알고리즘의 개선</strong>, 다른 하나는 사용자 경험을 넓힌 <strong class="text-slate-900">추가 발전</strong>입니다.
+          각각을 왜 하게 됐는지부터 설명합니다.
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-5 mt-6">
+          <div class="card p-6 border-l-4" style="border-left-color: var(--accent)">
+            <span class="chip text-indigo-600 uppercase">가장 중요</span>
+            <h3 class="text-lg font-bold mt-1.5 mb-2">개선 동기 — 근거 없는 수치를 없앤다</h3>
+            <p class="text-[14px] leading-relaxed text-slate-600">
+              기존 추천 엔진은 적합도를 <span class="kbd">100 − ΔE × 4.5</span>처럼 계산했지만,
+              <strong class="text-slate-900">"왜 4.5인가"</strong>를 설명할 수 없는 매직 넘버로 채워진 블랙박스였습니다.
+              지난 발표에서 이 수치들의 근거를 제대로 답하지 못한 것이 직접적인 계기입니다.
+              그래서 모든 계수에 <strong class="text-slate-900">색채 이론 근거</strong>(CIEDE2000 지각 임계, Itten 색상환, 명도·채도 균형)를 부여하고,
+              그 결과가 바뀌지 않도록 회귀 테스트로 고정했습니다.
+            </p>
+          </div>
+          <div class="card p-6 border-l-4" style="border-left-color: #a855f7">
+            <span class="chip text-purple-600 uppercase">개인화 강화</span>
+            <h3 class="text-lg font-bold mt-1.5 mb-2">발전 동기 — 점수에서 결과물로</h3>
+            <p class="text-[14px] leading-relaxed text-slate-600">
+              추천이 "점수 매기기"에서 멈추면 사용자는 결과를 소비만 합니다.
+              한 발 더 나아가 <strong class="text-slate-900">사용자가 직접 코디를 완성하고 기록</strong>하도록,
+              데일리룩 플랫레이 보드와 단일 옷 기준 추천을 더했습니다.
+              개인화 경험을 넓혀 "내 옷장"이라는 정체성을 강화하는 방향입니다.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. D1 module -->
+      <section id="d1" class="section">
+        <span class="chip text-indigo-600 uppercase">03 · 개선</span>
+        <h2 class="text-2xl font-extrabold mt-2 mb-4">엔진 모듈화 & 회귀 테스트</h2>
+        <div class="ba-grid">
+          <div class="ba-box ba-before">
+            <div class="font-bold text-rose-700 mb-1">이전</div>
+            App.tsx 한 파일에 <strong>3,546줄</strong>의 상태·UI·추천 로직이 섞여 있었습니다. 추천 산식만 떼어 검증하거나 안전하게 수정하는 것이 사실상 불가능했습니다.
+          </div>
+          <div class="ba-box ba-after">
+            <div class="font-bold text-emerald-700 mb-1">변경</div>
+            <span class="kbd">recommendationEngine.ts</span>(696줄)·<span class="kbd">personalColorEngine.ts</span>(449줄) 등 순수 함수 모듈로 분리하고, App.tsx는 547줄로 조립·라우팅만 담당하게 했습니다. Vitest 단위 테스트 23개로 점수·임계값을 고정했습니다.
+          </div>
+        </div>
+        <div class="card p-5 mt-4">
+          <div class="font-bold text-slate-900 text-[14px] mb-3">효과 · 점수 불변 보장</div>
+          <p class="text-[13px] text-slate-600 leading-relaxed mb-4">산식을 격리해 수정할 수 있게 됐고, 근거화 리팩토링이 실제 점수를 바꾸지 않았음을 절대값 스냅샷 테스트로 증명합니다.</p>
+          <table class="clean">
+            <thead><tr><th>대표 색 조합</th><th>조화 점수(고정 스냅샷)</th></tr></thead>
+            <tbody>
+              <tr><td>네이비 × 레드 (보색)</td><td><strong>89점</strong></td></tr>
+              <tr><td>화이트 × 데님</td><td><strong>85점</strong></td></tr>
+              <tr><td>그레이 × 차콜 (단색)</td><td><strong>84점</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 4. D2 weights -->
+      <section id="d2" class="section">
+        <span class="chip text-indigo-600 uppercase">04 · 개선</span>
+        <h2 class="text-2xl font-extrabold mt-2 mb-4">최종 점수의 4축 설계 (SCORE_WEIGHTS)</h2>
+        <div class="ba-grid">
+          <div class="ba-box ba-before">
+            <div class="font-bold text-rose-700 mb-1">이전</div>
+            색 조화 위주의 단순 점수로, 무엇을 얼마나 반영하는지 비중이 드러나지 않았습니다.
+          </div>
+          <div class="ba-box ba-after">
+            <div class="font-bold text-emerald-700 mb-1">변경</div>
+            최종 점수를 네 축의 가중합으로 명시했습니다. "이 앱은 퍼스널컬러가 중심"이라는 정체성을 가중치로 못박았습니다.
+          </div>
+        </div>
+        <div class="grid sm:grid-cols-4 gap-3 mt-4">
+          <div class="card p-4 text-center"><div class="text-2xl font-extrabold text-indigo-600">38%</div><div class="text-[13px] font-bold mt-1">퍼스널컬러 적합도</div><div class="text-[11px] text-slate-500 mt-1.5">12계절 팔레트와 CIEDE2000 거리</div></div>
+          <div class="card p-4 text-center"><div class="text-2xl font-extrabold text-purple-600">28%</div><div class="text-[13px] font-bold mt-1">색상 조화도</div><div class="text-[11px] text-slate-500 mt-1.5">Itten 각도 + 명도·채도 균형</div></div>
+          <div class="card p-4 text-center"><div class="text-2xl font-extrabold text-sky-600">22%</div><div class="text-[13px] font-bold mt-1">날씨 적합도</div><div class="text-[11px] text-slate-500 mt-1.5">기온 구간 × 의류 계절 태그</div></div>
+          <div class="card p-4 text-center"><div class="text-2xl font-extrabold text-emerald-600">12%</div><div class="text-[13px] font-bold mt-1">착용 안정성</div><div class="text-[11px] text-slate-500 mt-1.5">보유·세탁·보관 상태 보정</div></div>
+        </div>
+        <p class="text-[13px] text-slate-500 mt-3 leading-relaxed">효과 · 어떤 옷이 왜 추천됐는지를 "퍼컬 38, 조화 28…"처럼 축별 기여도로 분해해 설명할 수 있습니다.</p>
+      </section>
+
+      <!-- 5. D3 deltaE -->
+      <section id="d3" class="section">
+        <span class="chip text-indigo-600 uppercase">05 · 개선 (핵심)</span>
+        <h2 class="text-2xl font-extrabold mt-2 mb-4">퍼컬 적합도 · 선형 감점 → 구간형 색거리</h2>
+        <div class="ba-grid">
+          <div class="ba-box ba-before">
+            <div class="font-bold text-rose-700 mb-1">이전</div>
+            적합도 = <span class="kbd">100 − ΔE × 4.5</span>. 4.5의 근거가 없고, 색차가 조금만 멀어져도 점수가 급락해 <strong>ΔE 22.2부터 0점</strong>으로 전락했습니다.
+          </div>
+          <div class="ba-box ba-after">
+            <div class="font-bold text-emerald-700 mb-1">변경</div>
+            CIEDE2000 색차를 <strong>인간 지각 임계</strong>로 구간화했습니다. 사람이 "거의 같은 색"으로 느끼는 구간은 높게 유지하고, 실제로 다르게 보이는 구간만 완만히 감점합니다.
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-5 mt-4">
+          <div class="card p-5">
+            <div class="font-bold text-slate-900 text-[14px] mb-3">선형(이전) vs 구간형(변경) 점수 곡선</div>
+            <div class="h-64"><canvas id="deChart"></canvas></div>
+          </div>
+          <div class="card p-5 overflow-x-auto">
+            <div class="font-bold text-slate-900 text-[14px] mb-3">ΔE 구간별 지각 해석과 배점</div>
+            <table class="clean">
+              <thead><tr><th>ΔE 구간</th><th>지각적 해석</th><th class="text-right">변경 점수</th></tr></thead>
+              <tbody>
+                <tr><td class="font-semibold text-emerald-600">0 ~ 5</td><td>거의 같은 색 · 최적</td><td class="text-right font-bold">96~100</td></tr>
+                <tr><td class="font-semibold text-teal-600">5 ~ 12</td><td>조화가 뛰어난 추천색</td><td class="text-right font-bold">86~96</td></tr>
+                <tr><td class="font-semibold text-amber-600">12 ~ 22</td><td>착용 가능 범위</td><td class="text-right font-bold">70~86</td></tr>
+                <tr><td class="font-semibold text-orange-600">22 ~ 35</td><td>확연히 다른 색 · 후순위</td><td class="text-right font-bold">45~70</td></tr>
+                <tr><td class="font-semibold text-rose-600">35 이상</td><td>부조화 영역</td><td class="text-right font-bold">45 이하</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p class="text-[13px] text-slate-500 mt-3 leading-relaxed">효과 · 점수가 체감과 일치합니다. 같은 시즌 팔레트 안의 색을 과도하게 깎지 않으면서, 명백히 어긋나는 색은 분명히 후순위로 보냅니다.</p>
+      </section>
+
+      <!-- 6. D4 harmony -->
+      <section id="d4" class="section">
+        <span class="chip text-indigo-600 uppercase">06 · 개선</span>
+        <h2 class="text-2xl font-extrabold mt-2 mb-4">색상 조화 · 1요소 → 3요소 분석</h2>
+        <div class="ba-grid">
+          <div class="ba-box ba-before">
+            <div class="font-bold text-rose-700 mb-1">이전</div>
+            상하의 색상환 각도(Hue) 차이만 보았습니다. 각도가 좋아도 명도가 붙어 뭉개지거나 채도가 충돌하는 조합을 걸러내지 못했습니다.
+          </div>
+          <div class="ba-box ba-after">
+            <div class="font-bold text-emerald-700 mb-1">변경</div>
+            조화 점수를 <strong>Hue 관계 50% + 명도 균형 30% + 채도 균형 20%</strong>로 입체화했습니다. 코디 단위의 품질 평가로 확장된 것입니다.
+          </div>
+        </div>
+        <div class="grid md:grid-cols-2 gap-5 mt-4">
+          <div class="card p-5">
+            <div class="font-bold text-slate-900 text-[14px] mb-3">Hue 관계별 기본점</div>
+            <table class="clean">
+              <thead><tr><th>배색 관계 (각도)</th><th class="text-right">기본 점수</th></tr></thead>
+              <tbody>
+                <tr><td>보색 (136~180°)</td><td class="text-right font-bold">88</td></tr>
+                <tr><td>유사 (16~45°)</td><td class="text-right font-bold">82</td></tr>
+                <tr><td>단색 (≤15°)</td><td class="text-right font-bold">80</td></tr>
+                <tr><td>삼색 (91~135°)</td><td class="text-right font-bold">76</td></tr>
+                <tr><td>긴장 (46~90°)</td><td class="text-right font-bold">55</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card p-5">
+            <div class="font-bold text-slate-900 text-[14px] mb-3">명도·채도 보정 규칙</div>
+            <ul class="text-[13px] text-slate-600 space-y-2.5 leading-relaxed">
+              <li>· 이상적 명도차 <span class="kbd">0.22</span> 기준, 가까울수록 가점.</li>
+              <li>· 명도차 8%p 이하면 −28점(서로 뭉개짐).</li>
+              <li>· 두 옷 모두 채도 0.65 초과면 −12점(포인트 충돌).</li>
+              <li>· 두 옷 모두 채도 0.12 미만이면 −6점(밋밋함).</li>
+            </ul>
+          </div>
+        </div>
+        <p class="text-[13px] text-slate-500 mt-3 leading-relaxed">효과 · 각도·명도·채도를 함께 보므로, "각도는 보색이지만 둘 다 쨍해서 부담스러운" 조합을 점수로 걸러냅니다.</p>
+      </section>
+
+      <!-- 7. D5 ML -->
+      <section id="d5" class="section">
+        <span class="chip text-emerald-600 uppercase">07 · 개선 (ML)</span>
+        <h2 class="text-2xl font-extrabold mt-2 mb-4">의류 계절 자동 분류 · SegFormer × Random Forest</h2>
+        <div class="ba-grid">
+          <div class="ba-box ba-before">
+            <div class="font-bold text-rose-700 mb-1">이전</div>
+            사용자가 의류 계절을 직접 입력했습니다. 잘못 등록하면(예: 패딩을 여름으로) 날씨 추천이 통째로 어긋났습니다.
+          </div>
+          <div class="ba-box ba-after">
+            <div class="font-bold text-emerald-700 mb-1">변경</div>
+            누끼(SegFormer) 단계에서 <strong>95개의 형태·실루엣·색·라벨 피처</strong>를 뽑아 Random Forest(의사결정나무 300그루)가 계절을 자동 분류합니다. 사람의 오등록 가능성을 줄였습니다.
+          </div>
+        </div>
+        <div class="grid sm:grid-cols-3 gap-3 mt-4">
+          <div class="card p-5 text-center"><div class="text-3xl font-extrabold text-emerald-600">89.74%</div><div class="text-[13px] font-bold mt-1">테스트 정확도</div></div>
+          <div class="card p-5 text-center"><div class="text-3xl font-extrabold text-slate-900">4.7배</div><div class="text-[13px] font-bold mt-1">룰 기반(19.2%) 대비</div></div>
+          <div class="card p-5 text-center"><div class="text-3xl font-extrabold text-indigo-600">95</div><div class="text-[13px] font-bold mt-1">입력 특징 (트리 300그루)</div></div>
+        </div>
+        <p class="text-[13px] text-slate-500 mt-3 leading-relaxed">효과 · 날씨 적합도(22%) 축의 입력 신뢰도가 올라갑니다. 가장 영향력이 큰 피처는 <strong class="text-slate-700">소매 비율(중요도 9.48%)</strong>로, 도메인 지식이 모델에 반영됐음을 보여줍니다.</p>
+      </section>
+
+      <!-- 8. D6 performance -->
+      <section id="d6" class="section">
+        <span class="chip text-indigo-600 uppercase">08 · 개선</span>
+        <h2 class="text-2xl font-extrabold mt-2 mb-4">단일 옷 기준 추천 & 성능 최적화</h2>
+        <div class="ba-grid">
+          <div class="ba-box ba-before">
+            <div class="font-bold text-rose-700 mb-1">이전</div>
+            "이 옷에 맞는 코디"를 요청하면 카탈로그를 전수 조합해, 아우터 기준 <strong>582 × 75 = 43,650</strong>개 조합을 한 번에 계산하다 화면이 멈췄습니다. 또 다양성 필터가 기준 옷까지 횟수에 포함해 추천이 3개에서 막혔습니다.
+          </div>
+          <div class="ba-box ba-after">
+            <div class="font-bold text-emerald-700 mb-1">변경</div>
+            후보 풀을 퍼컬 적합도 상위로 정제(상·하의 60, 아우터 20)해 최대 <strong>3,600개</strong>로 줄이고, 기준 옷은 횟수에서 제외하고 상대 옷만 최대 2회로 제한했습니다.
+          </div>
+        </div>
+        <div class="card p-5 mt-4">
+          <div class="font-bold text-slate-900 text-[14px] mb-4">조합 경우의 수 압축 · 약 92% 감축</div>
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-[12px] mb-1"><span class="text-slate-500 font-semibold">이전 · 전수 연산</span><span class="font-bold text-rose-600">43,650개</span></div>
+              <div class="bar-track"><div class="bar-fill" style="width:100%; background:#fb7185"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[12px] mb-1"><span class="text-slate-500 font-semibold">변경 · 후보 정제</span><span class="font-bold text-emerald-600">3,600개 (−92%)</span></div>
+              <div class="bar-track"><div class="bar-fill" style="width:8.2%; background:#10b981"></div></div>
+            </div>
+          </div>
+          <p class="text-[13px] text-slate-500 mt-4 leading-relaxed">효과 · 런타임이 회복되고, 다양성 버그가 풀려 최대 <strong class="text-slate-700">24개</strong>의 서로 다른 코디를 보여줄 수 있게 됐습니다.</p>
+        </div>
+      </section>
+
+      <!-- 9. D7 dynamic explanation -->
+      <section id="d7" class="section">
+        <span class="chip text-indigo-600 uppercase">09 · 개선</span>
+        <h2 class="text-2xl font-extrabold mt-2 mb-4">동적 설명 생성 · 한 줄 → 4차원 소견서</h2>
+        <div class="ba-grid">
+          <div class="ba-box ba-before">
+            <div class="font-bold text-rose-700 mb-1">이전</div>
+            추천 사유가 한 줄로만 표시돼 설득력이 약했습니다.
+          </div>
+          <div class="ba-box ba-after">
+            <div class="font-bold text-emerald-700 mb-1">변경</div>
+            <span class="kbd">buildDetailedExplanation</span>이 퍼컬 궁합 · Itten 배색 · 실사용 스타일링 가이드를 묶은 4차원 소견서를 입력값에 맞춰 실시간 생성합니다.
+          </div>
+        </div>
+        <div class="card p-5 mt-4 bg-slate-50/60">
+          <div class="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">예시 출력</div>
+          <p class="font-bold text-slate-900 mt-1.5 text-[15px]">"트루 윈터에 어울리는 선명한 대비 (적합 88)"</p>
+          <div class="grid sm:grid-cols-2 gap-3 mt-3 text-[13px]">
+            <div class="bg-white border border-gray-200 rounded-lg p-3"><span class="font-bold text-indigo-600">① 퍼스널컬러 궁합.</span> <span class="text-slate-600">차가운 고대비 팔레트와 잘 맞는 파랑 계열입니다.</span></div>
+            <div class="bg-white border border-gray-200 rounded-lg p-3"><span class="font-bold text-purple-600">② 배색 조화.</span> <span class="text-slate-600">보색 대비로 또렷하고 세련된 인상을 줍니다.</span></div>
+          </div>
+        </div>
+        <p class="text-[13px] text-slate-500 mt-3 leading-relaxed">효과 · 추천 결과의 신뢰도와 설득력이 올라갑니다.</p>
+      </section>
+
+      <!-- 10. Evolution / Daily look -->
+      <section id="evo" class="section">
+        <span class="chip text-purple-600 uppercase">10 · 추가 발전</span>
+        <h2 class="text-2xl font-extrabold mt-2 mb-4">데일리룩 플랫레이 보드</h2>
+        <div class="card p-6">
+          <p class="text-[14px] text-slate-600 leading-relaxed">
+            추천받은 코디 세트를 캔버스에 배치하고 <strong class="text-slate-900">크기·회전·레이어 순서·텍스트 스티커</strong>를 편집해
+            한 장의 PNG 이미지로 완성하는 도구입니다. 빈 보드에서 시작해 옷장과 카탈로그 아이템을 자유롭게 더할 수 있습니다.
+          </p>
+          <div class="grid sm:grid-cols-3 gap-3 mt-5">
+            <div class="bg-purple-50 border border-purple-100 rounded-lg p-4 text-[13px]"><div class="font-bold text-purple-700 mb-1">배치·편집</div><span class="text-slate-600">드래그로 위치, 슬라이더로 크기·회전 조정.</span></div>
+            <div class="bg-purple-50 border border-purple-100 rounded-lg p-4 text-[13px]"><div class="font-bold text-purple-700 mb-1">텍스트 레이어</div><span class="text-slate-600">의류 레이어와 분리 저장해 구조 오염 없이 확장.</span></div>
+            <div class="bg-purple-50 border border-purple-100 rounded-lg p-4 text-[13px]"><div class="font-bold text-purple-700 mb-1">이미지 출력</div><span class="text-slate-600">완성본을 한 장의 이미지로 저장·공유.</span></div>
+          </div>
+          <p class="text-[13px] text-slate-500 mt-4 leading-relaxed">효과 · 추천이 "점수 확인"에서 "내 결과물 만들기"로 이어져 개인화 경험이 깊어집니다.</p>
+        </div>
+      </section>
+
+      <!-- 11. Future -->
+      <section id="future" class="section">
+        <span class="chip text-indigo-600 uppercase">11 Roadmap</span>
+        <h1 class="text-3xl font-extrabold mt-2 mb-4">향후 계획</h1>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="card p-5"><h4 class="font-bold text-[15px]">의류 자동 등록</h4><p class="text-[13px] text-slate-600 mt-1.5 leading-relaxed">옷 사진 한 장으로 계절 분류·색상 추출·카테고리 감지를 거쳐 옷장에 자동 등록하는 엔드투엔드 파이프라인.</p></div>
+          <div class="card p-5"><h4 class="font-bold text-[15px]">코디 평가 기능</h4><p class="text-[13px] text-slate-600 mt-1.5 leading-relaxed">사용자가 직접 고른 조합에 퍼컬 적합도·조화 점수를 실시간으로 피드백.</p></div>
+          <div class="card p-5"><h4 class="font-bold text-[15px]">human_label 데이터 확장</h4><p class="text-[13px] text-slate-600 mt-1.5 leading-relaxed">현재 카탈로그 860개 중 458개 라벨 완료(402개 미완)를 채워 모델을 재학습.</p></div>
+          <div class="card p-5"><h4 class="font-bold text-[15px]">협업 필터링</h4><p class="text-[13px] text-slate-600 mt-1.5 leading-relaxed">착용 이력과 선호도를 반영해 사용자 맞춤 추천을 보강.</p></div>
+          <div class="card p-5 md:col-span-2"><h4 class="font-bold text-[15px]">모델 경량화</h4><p class="text-[13px] text-slate-600 mt-1.5 leading-relaxed">모바일 브라우저에서도 추론 가능한 경량 분류 모델을 탐구.</p></div>
+        </div>
+        <div class="mt-10 pt-6 border-t border-gray-200 text-[12px] text-slate-400">
+          © 2026 Fitly · 퍼스널컬러 AI 옷장 어시스턴트. 본 보고서의 수치는 소스 코드와 프로젝트 문서에서 검증한 값만 사용했습니다.
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    // ΔE 선형 vs 구간형 점수 곡선
+    function afterScore(d) {
+      if (d <= 5) return 100 - (d / 5) * 4;
+      if (d <= 12) return 96 - ((d - 5) / 7) * 10;
+      if (d <= 22) return 86 - ((d - 12) / 10) * 16;
+      if (d <= 35) return 70 - ((d - 22) / 13) * 25;
+      return Math.max(20, 45 - ((d - 35) / 10) * 20);
+    }
+    function beforeScore(d) { return Math.max(0, 100 - d * 4.5); }
+    const labels = [];
+    const beforeData = [];
+    const afterData = [];
+    for (let d = 0; d <= 45; d += 1.5) {
+      labels.push(d);
+      beforeData.push(beforeScore(d));
+      afterData.push(afterScore(d));
+    }
+    new Chart(document.getElementById('deChart'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: '이전 (선형 100−ΔE×4.5)', data: beforeData, borderColor: '#fb7185', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.1, borderDash: [5, 4] },
+          { label: '변경 (구간형 색거리)', data: afterData, borderColor: '#4f46e5', backgroundColor: 'rgba(79,70,229,0.06)', borderWidth: 2.5, pointRadius: 0, tension: 0.35, fill: true }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#475569', font: { size: 11 }, boxWidth: 18 } } },
+        scales: {
+          x: { title: { display: true, text: 'ΔE (CIEDE2000 색차)', color: '#64748b', font: { size: 11 } }, grid: { color: '#eef2f7' }, ticks: { color: '#94a3b8', maxTicksLimit: 8 } },
+          y: { min: 0, max: 100, title: { display: true, text: '적합도 점수', color: '#64748b', font: { size: 11 } }, grid: { color: '#eef2f7' }, ticks: { color: '#94a3b8' } }
+        }
+      }
+    });
+
+    // 스크롤 시 사이드바 활성 표시
+    const links = [...document.querySelectorAll('.nav-link')];
+    const sections = links.map(l => document.querySelector(l.getAttribute('href')));
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          const id = '#' + e.target.id;
+          links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === id));
+        }
+      });
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    sections.forEach(s => s && obs.observe(s));
+  </script>
+</body>
+</html>

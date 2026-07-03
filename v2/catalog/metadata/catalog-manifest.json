@@ -1,0 +1,17 @@
+{
+    "generatedAt":  "2026-07-02T00:00:00.000+09:00",
+    "source":  {
+                   "imageRoot":  "public/catalog",
+                   "trainingCatalogJson":  "src/data/trainingCatalog.json",
+                   "trainingCatalogTs":  "src/data/trainingCatalog.ts",
+                   "outerCatalogTs":  "src/data/outerCatalog.ts"
+               },
+    "assets":  {
+                   "imageCount":  860,
+                   "copiedToPublicCount":  860
+               },
+    "metadata":  {
+                     "trainingItemCount":  860,
+                     "outerItemCount":  30
+                 }
+}

@@ -1,0 +1,81 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - button "F Fitly Personal_Color_Project" [ref=e5] [cursor=pointer]:
+      - generic [ref=e6]: F
+      - generic [ref=e7]:
+        - strong [ref=e8]: Fitly
+        - generic [ref=e9]: Personal_Color_Project
+    - navigation [ref=e10]:
+      - button "홈" [ref=e11] [cursor=pointer]:
+        - img [ref=e12]
+        - generic [ref=e15]: 홈
+      - button "옷장" [ref=e16] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e20]: 옷장
+      - button "AI 추천" [ref=e21] [cursor=pointer]:
+        - img [ref=e22]
+        - generic [ref=e25]: AI 추천
+      - button "데일리룩" [ref=e26] [cursor=pointer]:
+        - img [ref=e27]
+        - generic [ref=e29]: 데일리룩
+      - button "설정" [ref=e30] [cursor=pointer]:
+        - img [ref=e31]
+        - generic [ref=e34]: 설정
+    - button "내 프로필 트루 서머" [ref=e35] [cursor=pointer]:
+      - img [ref=e37]
+      - generic [ref=e40]:
+        - strong [ref=e41]: 내 프로필
+        - generic [ref=e42]: 트루 서머
+  - main [ref=e44]:
+    - generic [ref=e45]:
+      - button "Personal Color 나만의 퍼스널컬러 찾기 촬영과 설문으로 나의 퍼스널 컬러를 찾고 옷장 추천 기준으로 저장합니다. 측정 시작" [ref=e46] [cursor=pointer]:
+        - generic [ref=e47]: Personal Color
+        - heading "나만의 퍼스널컬러 찾기" [level=1] [ref=e48]
+        - paragraph [ref=e49]: 촬영과 설문으로 나의 퍼스널 컬러를 찾고 옷장 추천 기준으로 저장합니다.
+        - generic [ref=e50]:
+          - text: 측정 시작
+          - img [ref=e51]
+      - generic [ref=e53]:
+        - button "나만의 옷장 만들기 DB 의류를 골라 빠르게 옷장을 구성합니다." [ref=e54] [cursor=pointer]:
+          - heading "나만의 옷장 만들기" [level=2] [ref=e55]
+          - paragraph [ref=e56]: DB 의류를 골라 빠르게 옷장을 구성합니다.
+        - button "나만의 옷 추가 사진 업로드와 직접 입력으로 옷을 추가합니다." [ref=e57] [cursor=pointer]:
+          - heading "나만의 옷 추가" [level=2] [ref=e58]
+          - paragraph [ref=e59]: 사진 업로드와 직접 입력으로 옷을 추가합니다.
+        - button "데일리룩 만들기 저장한 데일리룩 조합을 하나의 룩 이미지로 편집합니다." [ref=e60] [cursor=pointer]:
+          - heading "데일리룩 만들기" [level=2] [ref=e61]
+          - paragraph [ref=e62]: 저장한 데일리룩 조합을 하나의 룩 이미지로 편집합니다.
+      - generic [ref=e64]:
+        - generic [ref=e65]:
+          - img [ref=e66]
+          - heading "실시간 날씨" [level=2] [ref=e71]
+        - paragraph [ref=e72]: 날씨 정보를 불러오는 중입니다.
+        - generic [ref=e73]:
+          - generic [ref=e74]: "미세먼지 : 확인 중"
+          - generic [ref=e75]: "초미세먼지 : 확인 중"
+          - generic [ref=e76]: "마스크 : 정보 확인 중"
+          - generic [ref=e77]: 우산 필요 낮음
+        - generic [ref=e78]: 서울 기준 · 추천 구간 20~22도
+      - generic [ref=e79]:
+        - heading "내 옷장 현황" [level=2] [ref=e80]
+        - generic [ref=e81]:
+          - generic [ref=e82]:
+            - strong [ref=e83]: "5"
+            - generic [ref=e84]: 옷장
+          - generic [ref=e85]:
+            - strong [ref=e86]: "0"
+            - generic [ref=e87]: 아이템
+      - button "최근 데일리룩 새 데일리룩 · 0점" [ref=e88] [cursor=pointer]:
+        - heading "최근 데일리룩" [level=2] [ref=e89]
+        - paragraph [ref=e90]: 새 데일리룩 · 0점
+      - generic [ref=e92]:
+        - heading "내 옷장 목록" [level=2] [ref=e93]
+        - button "나의 새 옷장" [ref=e94] [cursor=pointer]:
+          - text: 나의 새 옷장
+          - img [ref=e95]
+        - button "나의 새 옷장" [ref=e97] [cursor=pointer]:
+          - text: 나의 새 옷장
+          - img [ref=e98]
+        - button "출근용 옷장" [ref=e100] [cursor=pointer]:
+          - text: 출근용 옷장
+          - img [ref=e101]

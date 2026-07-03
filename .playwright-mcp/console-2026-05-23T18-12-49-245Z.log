@@ -1,0 +1,54 @@
+[      69ms] [ERROR] WebSocket connection to 'wss://localhost/?token=Hacrp_6HR09x' failed: Error in connection establishment: net::ERR_CERT_AUTHORITY_INVALID @ http://localhost:3000/@vite/client:801
+[      69ms] [ERROR] [vite] failed to connect to websocket (Error: WebSocket closed without opened.).  @ http://localhost:3000/@vite/client:840
+[      72ms] Error: WebSocket closed without opened.
+    at WebSocket.<anonymous> (http://localhost:3000/@vite/client:454:22)
+[     290ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=241532f3:20102
+[   63978ms] [WARNING] W0523 18:13:53.222000 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[   64055ms] [LOG] I0523 18:13:53.299000 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[   64057ms] [WARNING] W0523 18:13:53.300999 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[   64061ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[   70499ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388
+[  203020ms] [ERROR] WebSocket connection to 'wss://localhost/?token=Hacrp_6HR09x' failed: Error in connection establishment: net::ERR_CERT_AUTHORITY_INVALID @ http://localhost:3000/@vite/client:801
+[  203020ms] [ERROR] [vite] failed to connect to websocket (Error: WebSocket closed without opened.).  @ http://localhost:3000/@vite/client:840
+[  203024ms] Error: WebSocket closed without opened.
+    at WebSocket.<anonymous> (http://localhost:3000/@vite/client:454:22)
+[  203108ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=241532f3:20102
+[  204302ms] [WARNING] W0523 18:16:13.545999 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  204357ms] [LOG] I0523 18:16:13.601999 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[  204358ms] [WARNING] W0523 18:16:13.601999 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  204359ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[  204669ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388
+[  302029ms] [ERROR] WebSocket connection to 'wss://localhost/?token=Hacrp_6HR09x' failed: Error in connection establishment: net::ERR_CERT_AUTHORITY_INVALID @ http://localhost:3000/@vite/client:801
+[  302030ms] [ERROR] [vite] failed to connect to websocket (Error: WebSocket closed without opened.).  @ http://localhost:3000/@vite/client:840
+[  302032ms] Error: WebSocket closed without opened.
+    at WebSocket.<anonymous> (http://localhost:3000/@vite/client:454:22)
+[  302150ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=241532f3:20102
+[  303369ms] [WARNING] W0523 18:17:52.612999 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  303422ms] [LOG] I0523 18:17:52.665999 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[  303422ms] [WARNING] W0523 18:17:52.667000 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  303424ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[  303729ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388
+[  462189ms] [ERROR] WebSocket connection to 'wss://localhost/?token=Hacrp_6HR09x' failed: Error in connection establishment: net::ERR_CERT_AUTHORITY_INVALID @ http://localhost:3000/@vite/client:801
+[  462189ms] [ERROR] [vite] failed to connect to websocket (Error: WebSocket closed without opened.).  @ http://localhost:3000/@vite/client:840
+[  462190ms] Error: WebSocket closed without opened.
+    at WebSocket.<anonymous> (http://localhost:3000/@vite/client:454:22)
+[  462333ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=241532f3:20102
+[  463255ms] [WARNING] W0523 18:20:32.499000 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  463341ms] [LOG] I0523 18:20:32.584999 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[  463344ms] [WARNING] W0523 18:20:32.588000 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  463346ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[  463749ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388
+[  522086ms] [ERROR] WebSocket connection to 'wss://localhost/?token=Hacrp_6HR09x' failed: Error in connection establishment: net::ERR_CERT_AUTHORITY_INVALID @ http://localhost:3000/@vite/client:801
+[  522087ms] [ERROR] [vite] failed to connect to websocket (Error: WebSocket closed without opened.).  @ http://localhost:3000/@vite/client:840
+[  522088ms] Error: WebSocket closed without opened.
+    at WebSocket.<anonymous> (http://localhost:3000/@vite/client:454:22)
+[  522302ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=241532f3:20102
+[  523521ms] [WARNING] W0523 18:21:32.764999 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  523591ms] [LOG] I0523 18:21:32.836000 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[  523593ms] [WARNING] W0523 18:21:32.836999 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  523594ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[  524714ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388
+[  528905ms] [WARNING] Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently @ http://localhost:3000/src/services/photoAnalysis.ts:258
+[  531984ms] [ERROR] Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. #111111 @ http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=241532f3:4924
+[  531984ms] [ERROR] Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. #FFFFFF @ http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=241532f3:4924
+[  612842ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/background/remove:0

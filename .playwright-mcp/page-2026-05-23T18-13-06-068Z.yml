@@ -1,0 +1,40 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - button "F Fitly Personal_Color_Project" [ref=e5] [cursor=pointer]:
+      - generic [ref=e6]: F
+      - generic [ref=e7]:
+        - strong [ref=e8]: Fitly
+        - generic [ref=e9]: Personal_Color_Project
+    - navigation [ref=e10]:
+      - button "홈" [ref=e11] [cursor=pointer]:
+        - img [ref=e12]
+        - generic [ref=e15]: 홈
+      - button "옷장" [ref=e16] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e20]: 옷장
+      - button "AI 추천" [active] [ref=e21] [cursor=pointer]:
+        - img [ref=e22]
+        - generic [ref=e25]: AI 추천
+      - button "데일리룩" [ref=e26] [cursor=pointer]:
+        - img [ref=e27]
+        - generic [ref=e29]: 데일리룩
+      - button "설정" [ref=e30] [cursor=pointer]:
+        - img [ref=e31]
+        - generic [ref=e34]: 설정
+    - button "내 프로필 미측정" [ref=e35] [cursor=pointer]:
+      - img [ref=e37]
+      - generic [ref=e40]:
+        - strong [ref=e41]: 내 프로필
+        - generic [ref=e42]: 미측정
+  - main [ref=e44]:
+    - generic [ref=e102]:
+      - generic [ref=e103]:
+        - button [ref=e104] [cursor=pointer]:
+          - img [ref=e105]
+        - generic [ref=e107]:
+          - heading "AI 옷장 추천" [level=1] [ref=e108]
+          - paragraph [ref=e109]: 실시간 날씨와 퍼스널컬러, 상황을 함께 반영합니다.
+      - generic [ref=e110]:
+        - heading "퍼스널 컬러 측정이 필요합니다." [level=2] [ref=e111]
+        - paragraph [ref=e112]: 추천은 측정 결과가 저장된 뒤 활성화됩니다.
+        - button "측정하러 가기" [ref=e113] [cursor=pointer]

@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<!-- 발표용 슬라이드 덱: 퍼스널컬러 AI 옷장 어시스턴트 — 개선·추가발전 발표 (HTML, 16:9) -->
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>퍼스널컬러 AI 옷장 어시스턴트 — 개선 발표</title>
+<style>
+  :root {
+    --ink: #1f2430; --muted: #5b6472; --line: #e6e1ef;
+    --purple: #6f45c6; --purple-deep: #5226a0; --purple-soft: #f4efff;
+    --green: #16a34a; --indigo: #6366f1; --amber: #b8860b; --bg: #f6f4fb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif; background: #2a2440; color: var(--ink); overflow: hidden; }
+  .deck { width: 100vw; height: 100vh; position: relative; }
+  .slide { position: absolute; inset: 0; display: none; flex-direction: column; padding: 5.5vh 7vw 7vh; background: linear-gradient(160deg, #ffffff 0%, var(--bg) 100%); animation: fade .35s ease; }
+  .slide.active { display: flex; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .kicker { font-size: 1.05vw; letter-spacing: .3em; text-transform: uppercase; color: var(--purple); font-weight: 800; }
+  .kicker.add { color: var(--green); }
+  h1 { font-size: 3.9vw; line-height: 1.15; color: var(--ink); margin-top: 1.4vh; letter-spacing: -.01em; }
+  h2 { font-size: 2.6vw; line-height: 1.2; color: var(--ink); margin-top: .6vh; letter-spacing: -.01em; }
+  .sub { font-size: 1.45vw; color: var(--muted); margin-top: 1.8vh; line-height: 1.55; }
+  .slide-body { margin-top: 2.6vh; flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 1.8vh; }
+
+  ul { list-style: none; display: flex; flex-direction: column; gap: 1.3vh; }
+  li { font-size: 1.5vw; line-height: 1.4; color: #2b3242; padding-left: 2.1vw; position: relative; }
+  li::before { content: ''; position: absolute; left: 0; top: .55em; width: .85vw; height: .85vw; border-radius: 50%; background: var(--purple); }
+  li b { color: var(--purple-deep); }
+  .em { color: var(--purple-deep); font-weight: 800; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8vw; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 2.2vh 1.7vw; box-shadow: 0 10px 30px rgba(82,38,160,.06); }
+  .card.before { border-color: #e7d9d9; background: linear-gradient(180deg,#fff,#fdf6f6); }
+  .card.after { border-color: #d9e7df; background: linear-gradient(180deg,#fff,#f4fbf7); }
+  .card .tag { font-size: 1.0vw; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+  .card.before .tag { color: #b4534f; } .card.after .tag { color: #2f9e6e; }
+  .card h3 { font-size: 1.5vw; margin: .7vh 0 1vh; color: var(--ink); }
+  .card p, .card li { font-size: 1.2vw; color: #3a4150; line-height: 1.4; }
+  .card ul { gap: .8vh; margin-top: .5vh; }
+  .card li { padding-left: 1.5vw; } .card li::before { width: .6vw; height: .6vw; top: .5em; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 1.28vw; }
+  th, td { text-align: left; padding: 1.15vh 1.05vw; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--purple); font-size: 1.0vw; letter-spacing: .06em; text-transform: uppercase; }
+  td.val { font-weight: 800; color: var(--purple-deep); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  .arrowcell { color: var(--green); font-weight: 800; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5vw; }
+  .stat { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 2.6vh 1.2vw; text-align: center; box-shadow: 0 10px 30px rgba(82,38,160,.06); }
+  .stat .num { font-size: 3.1vw; font-weight: 850; color: var(--purple-deep); line-height: 1; letter-spacing: -.02em; }
+  .stat .lbl { font-size: 1.0vw; color: var(--muted); margin-top: 1vh; line-height: 1.3; }
+
+  /* flow diagram */
+  .flow { display: flex; align-items: stretch; gap: .6vw; }
+  .flow-step { flex: 1; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 1.8vh 1vw; text-align: center; box-shadow: 0 8px 22px rgba(82,38,160,.05); display: flex; flex-direction: column; justify-content: center; gap: .5vh; }
+  .flow-step .n { font-size: .95vw; color: var(--purple); font-weight: 800; }
+  .flow-step .t { font-size: 1.32vw; font-weight: 800; color: var(--ink); }
+  .flow-step .d { font-size: .92vw; color: var(--muted); line-height: 1.3; }
+  .flow-arrow { display: flex; align-items: center; color: var(--purple); font-size: 1.8vw; font-weight: 800; }
+  .modules { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.4vw; margin-top: 2.4vh; }
+  .mod { background: var(--purple-soft); border-radius: 14px; padding: 1.8vh 1.2vw; }
+  .mod .mt { font-size: 1.3vw; font-weight: 800; color: var(--purple-deep); }
+  .mod .md { font-size: 1.0vw; color: #5a4f74; margin-top: .6vh; line-height: 1.35; }
+
+  .note { font-size: 1.12vw; color: var(--muted); margin-top: .8vh; }
+  .quote { font-size: 1.65vw; line-height: 1.5; color: #2b3242; border-left: .4vw solid var(--purple); padding-left: 1.4vw; }
+  .arrow { color: var(--purple); font-weight: 800; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2vw; }
+  .col h3 { font-size: 1.4vw; color: var(--purple-deep); margin-bottom: 1vh; }
+
+  .title-slide { justify-content: center; align-items: flex-start; background: linear-gradient(155deg, #36296b 0%, #5226a0 55%, #6f45c6 100%); color: #fff; }
+  .title-slide .kicker { color: #d7c6ff; }
+  .title-slide h1 { color: #fff; font-size: 4.4vw; }
+  .title-slide .sub { color: #e6dcff; }
+  .title-slide .meta { margin-top: 4.5vh; font-size: 1.15vw; color: #c9b8f5; }
+
+  .closing { background: linear-gradient(155deg, #36296b 0%, #5226a0 100%); color: #fff; justify-content: center; }
+  .closing .kicker { color: #d7c6ff; } .closing h1 { color: #fff; }
+  .closing .quote { color: #f0eaff; border-color: #b69cf0; }
+
+  .counter { position: fixed; bottom: 2.2vh; right: 3vw; font-size: 1.05vw; color: var(--muted); z-index: 50; font-variant-numeric: tabular-nums; }
+  .deck-title { position: fixed; bottom: 2.2vh; left: 3vw; font-size: .95vw; color: #a99fc0; z-index: 50; }
+  .hint { position: fixed; bottom: 2.2vh; left: 50%; transform: translateX(-50%); font-size: .9vw; color: #b7afca; z-index: 50; }
+  .progress { position: fixed; top: 0; left: 0; height: 5px; background: var(--purple); transition: width .3s ease; z-index: 60; }
+
+  @media print {
+    body { overflow: visible; background: #fff; }
+    .slide { display: flex !important; position: relative; height: 100vh; page-break-after: always; }
+    .progress, .counter, .deck-title, .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 1. Title -->
+  <section class="slide title-slide active">
+    <div class="kicker">퍼스널컬러 AI 옷장 어시스턴트 · Fitly</div>
+    <h1>개선사항 &amp; 추가발전 발표</h1>
+    <div class="sub">진단부터 코디·데일리룩까지 — 설명 가능한 추천 엔진으로</div>
+    <div class="meta">중간 발표 이후 개선 · 기준: personalcolorcheckpage → 현재 (26개 커밋) · 2026.05</div>
+  </section>
+
+  <!-- 2. Project overview -->
+  <section class="slide">
+    <div class="kicker">프로젝트 개요</div>
+    <h2>퍼스널컬러 AI 옷장 어시스턴트</h2>
+    <div class="slide-body">
+      <p class="sub" style="margin-top:0;">얼굴 사진 + 설문 5문항으로 <b class="em">12계절 퍼스널컬러</b>를 진단하고, 그 결과로 <b class="em">내 옷을 색 적합도순 코디</b>로 추천합니다.</p>
+      <div style="margin-top:1vh;">
+        <div class="kicker" style="font-size:.95vw;">왜 만들었나</div>
+        <ul style="margin-top:1.2vh;">
+          <li>전문가 대면 진단은 비용(5~15만원)과 접근성의 벽</li>
+          <li>진단을 받아도 <b>실제 옷 선택과 연결되지 않는</b> 단절</li>
+          <li>색상과 날씨를 <b>동시에</b> 고려한 코디 추천은 드뭄</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Flow + modules -->
+  <section class="slide">
+    <div class="kicker">어떻게 동작하나</div>
+    <h2>진단에서 데일리룩까지, 하나의 흐름</h2>
+    <div class="slide-body">
+      <div class="flow">
+        <div class="flow-step"><div class="n">01</div><div class="t">퍼컬 진단</div><div class="d">사진+설문 → 12계절</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="n">02</div><div class="t">옷장 등록</div><div class="d">배경제거 + ML 계절분류</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="n">03</div><div class="t">날씨 연동</div><div class="d">기온 구간 반영</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="n">04</div><div class="t">코디 추천</div><div class="d">4축 점수 조합</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="n">05</div><div class="t">데일리룩</div><div class="d">룩 이미지 완성</div></div>
+      </div>
+      <div class="modules">
+        <div class="mod"><div class="mt">① 퍼스널컬러 진단</div><div class="md">MediaPipe 15개 ROI · Lab 4축 특징 · 12계절</div></div>
+        <div class="mod"><div class="mt">② 의류 이미지 분석</div><div class="md">SegFormer 분할 + Random Forest · 3계절 분류 정확도 89.74% (라벨 516장 기준)</div></div>
+        <div class="mod"><div class="mt">③ 코디 추천</div><div class="md">CIEDE2000 색거리 + Itten 조화 · 4축 점수(38·22·28·12)</div></div>
+      </div>
+      <p class="note">React + TypeScript SPA · FastAPI 이미지 서버 · 카탈로그 860벌</p>
+    </div>
+  </section>
+
+  <!-- 4. WHY improve (story) -->
+  <section class="slide">
+    <div class="kicker">개선하게 된 이유</div>
+    <h2>왜 추천 알고리즘인가</h2>
+    <div class="slide-body">
+      <p class="sub" style="margin-top:0;">이 프로젝트의 <b class="em">심장은 추천</b>입니다. 진단·옷장·날씨는 모두 “그래서 뭘 입을까”를 위한 입력이고, 사용자가 가치를 느끼는 지점도 추천 결과입니다.</p>
+      <div class="card before" style="margin-top:.6vh;">
+        <div class="tag">그런데 — 동작은 했지만 설명할 수 없었다</div>
+        <ul>
+          <li>왜 이 코디인지 <b>설명 못 하는 블랙박스</b></li>
+          <li>점수 계수가 <b>근거 없는 매직 넘버</b></li>
+          <li>개별 의류 점수 중심 — <b>코디 단위 완성도 못 봄</b></li>
+          <li>추천 로직이 App.tsx에 섞여 <b>검증·설명 불가</b></li>
+        </ul>
+      </div>
+      <p class="note">졸업작품에서 가장 방어해야 할 질문은 “그 추천이 왜 타당한가”. → <b class="em">설명 가능하고 검증된 엔진</b>으로 만드는 것을 최우선으로.</p>
+    </div>
+  </section>
+
+  <!-- 5. WHY develop further (story) -->
+  <section class="slide">
+    <div class="kicker add">추가 발전하게 된 이유</div>
+    <h2>왜 데일리룩·단일 옷 추천인가</h2>
+    <div class="slide-body">
+      <p class="sub" style="margin-top:0;">추천이 탄탄해져도 경험은 “리스트를 보는 것”에서 멈춥니다. 진짜 개인화는 한 걸음 더 — <b class="em">내 상황 맞춤</b>과 <b class="em">결과물 완성</b>까지.</p>
+      <div class="grid2" style="margin-top:.6vh;">
+        <div class="card after">
+          <div class="tag">단일 옷 코디 추천</div>
+          <p>“오늘 이 옷을 입고 싶은데 뭘 매치하지?” — 고정하고 싶은 한 벌에서 출발하는 추천.</p>
+        </div>
+        <div class="card after">
+          <div class="tag">데일리룩</div>
+          <p>마음에 든 코디를 보드에 배치하고 텍스트까지 얹어 “나만의 룩 이미지”로 완성.</p>
+        </div>
+      </div>
+      <p class="note">경험을 “진단 → 추천”에서 <b class="em">“진단 → 추천 → 내 상황 맞춤 → 결과물 완성”</b>으로 확장.</p>
+    </div>
+  </section>
+
+  <!-- 6. Engine structure -->
+  <section class="slide">
+    <div class="kicker">개선사항 · 추천 엔진</div>
+    <h2>매직 넘버 코드 → 문서화된 모듈</h2>
+    <div class="slide-body">
+      <table>
+        <tr><th>구분</th><th>Before (기존)</th><th>After (현재)</th></tr>
+        <tr><td class="val">위치</td><td>App.tsx에 추천 로직 인라인</td><td>recommendationEngine.ts (696줄)</td></tr>
+        <tr><td class="val">점수 계수</td><td>코드에 박힌 숫자</td><td>이름 있는 상수 28개 + 근거 주석</td></tr>
+        <tr><td class="val">테스트</td><td>추천 단위 테스트 없음</td><td>단위 테스트 23개</td></tr>
+        <tr><td class="val">설명 문장</td><td>고정 템플릿 한 줄</td><td>계산값 기반 동적 생성</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 7. 4-axis -->
+  <section class="slide">
+    <div class="kicker">개선사항 · 점수 산식</div>
+    <h2>최종 점수 = 4축 가중합</h2>
+    <div class="slide-body">
+      <div class="stat-row">
+        <div class="stat"><div class="num">38</div><div class="lbl">퍼스널컬러 적합도<br/>앱의 정체성</div></div>
+        <div class="stat"><div class="num">28</div><div class="lbl">색상 조화도<br/>코디 완성도</div></div>
+        <div class="stat"><div class="num">22</div><div class="lbl">날씨 적합도<br/>실착용 가능성</div></div>
+        <div class="stat"><div class="num">12</div><div class="lbl">착용 안정성<br/>보유·상태 보정</div></div>
+      </div>
+      <p class="note">정체성(퍼컬) &gt; 완성도(조화) &gt; 실용(날씨) &gt; 보정(안정) 순으로 비중 배분 (단위: %)</p>
+    </div>
+  </section>
+
+  <!-- 8. Harmony decomposition -->
+  <section class="slide">
+    <div class="kicker">개선사항 · 색상 조화</div>
+    <h2>단순 보정 → 3요소 분해</h2>
+    <div class="slide-body">
+      <div class="grid2">
+        <div class="card before">
+          <div class="tag">Before</div>
+          <h3>기본 점수 + 대비 보정</h3>
+          <p>색상 관계 기본 점수에 시즌 대비 보정만 더함. 보정값이 <b>설명 없는 매직 넘버</b>.</p>
+        </div>
+        <div class="card after">
+          <div class="tag">After</div>
+          <h3>hue 50% + 명도 30% + 채도 20%</h3>
+          <ul>
+            <li>hue 관계 — 조화의 1차 결정 요인 (Itten 색상환)</li>
+            <li>명도 균형 — 상하의 분리감(가독성)</li>
+            <li>채도 균형 — 과한 색 충돌 억제</li>
+            <li>+ 시즌 대비 보정 · 안정성 가산</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. Rationale table -->
+  <section class="slide">
+    <div class="kicker">개선사항 · “이 숫자 왜?”</div>
+    <h2>모든 계수에 근거가 있다</h2>
+    <div class="slide-body">
+      <table>
+        <tr><th>상수</th><th>값</th><th>근거</th></tr>
+        <tr><td>조화 비중</td><td class="val">hue.5 / 명도.3 / 채도.2</td><td>hue가 1차 요인, 명도는 가독성, 채도는 충돌 억제</td></tr>
+        <tr><td>기본 점수</td><td class="val">보색88·유사82·tension55</td><td>보색·유사색이 가장 안정, 어중간한 거리가 가장 약함</td></tr>
+        <tr><td>이상 명도차</td><td class="val">0.22</td><td>상하의가 구분되면서도 과하지 않은 대비</td></tr>
+        <tr><td>저명도 대비</td><td class="val">8%p 미만 → −28</td><td>차이 너무 작으면 한 덩어리로 뭉개짐</td></tr>
+        <tr><td>고채도 충돌</td><td class="val">둘 다 &gt;0.65 → −12</td><td>포인트가 둘이라 과하게 충돌</td></tr>
+        <tr><td>안정성 가산</td><td class="val">포인트+받침 → +6</td><td>무채·데님이 강한 포인트색을 받칠 때 가장 안정</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 10. Score invariance -->
+  <section class="slide">
+    <div class="kicker">개선사항 · 신뢰성</div>
+    <h2>“값은 안 바꿨다”를 증명</h2>
+    <div class="slide-body">
+      <div class="stat-row" style="grid-template-columns: repeat(3,1fr); max-width: 70%; margin: 0 auto;">
+        <div class="stat"><div class="num">89</div><div class="lbl">대표 케이스 1</div></div>
+        <div class="stat"><div class="num">85</div><div class="lbl">대표 케이스 2</div></div>
+        <div class="stat"><div class="num">84</div><div class="lbl">대표 케이스 3</div></div>
+      </div>
+      <p class="note" style="text-align:center; font-size:1.35vw;">매직 넘버를 상수로 바꾸는 리팩터링 전후로 점수가 <b>동일함</b>을 회귀 스냅샷 테스트로 박제.<br/>설명 가능성을 얻으면서 기존 동작은 그대로 보존했습니다.</p>
+    </div>
+  </section>
+
+  <!-- 11. Dynamic explanation -->
+  <section class="slide">
+    <div class="kicker">개선사항 · 설명 동적화</div>
+    <h2>고정 문구 → 계산값 기반 (LLM 미사용)</h2>
+    <div class="slide-body">
+      <div class="grid2">
+        <div class="card before">
+          <div class="tag">Before</div>
+          <p>“퍼스널 컬러 적합도와 코디 안정성을 우선 반영했습니다.”</p>
+          <p style="margin-top:1vh; color:#9aa0ac;">— 모든 코디에 같은 고정 문구</p>
+        </div>
+        <div class="card after">
+          <div class="tag">After</div>
+          <p>“트루 윈터에 어울리는 <b>선명한 대비</b> (적합 88)”</p>
+          <p style="margin-top:1vh;">“팔레트의 <b>파랑 계열</b>과 잘 맞음 (적합 87)”</p>
+        </div>
+      </div>
+      <p class="note">엔진이 이미 계산한 시즌·색계열·점수를 규칙으로 조합 — <b>“엔진이 직접 계산한다”</b>는 논지를 지킵니다.</p>
+    </div>
+  </section>
+
+  <!-- 12. Reason UI -->
+  <section class="slide">
+    <div class="kicker">개선사항 · 추천 UI</div>
+    <h2>블랙박스 추천 → 근거를 화면에</h2>
+    <div class="slide-body">
+      <ul>
+        <li><b>동적 헤드라인</b> — 시즌·배색·점수가 들어간 한 줄</li>
+        <li><b>근거 3줄</b> — 퍼스널핏·색조화·날씨를 각각 점수와 함께</li>
+        <li><b>4축 점수 분해</b> — 어느 축에서 점수가 났는지 노출</li>
+        <li><b>품질 진단 · 출처 뱃지</b> — 기준 대비 가산/감산, 보유/카탈로그 표시</li>
+      </ul>
+      <p class="note">사용자가 추천을 신뢰할 근거를 화면에서 바로 확인합니다.</p>
+    </div>
+  </section>
+
+  <!-- 13. Anchor finder (추가발전) -->
+  <section class="slide">
+    <div class="kicker add">추가발전 · 신규 기능</div>
+    <h2>이 옷으로 코디 찾기</h2>
+    <div class="slide-body">
+      <div class="grid2" style="align-items:center;">
+        <div>
+          <ul>
+            <li>옷 한 벌을 <b>기준</b>으로 고정 → 어울리는 코디 탐색</li>
+            <li>상대 옷 출처 선택: 내 옷장 / 카탈로그 / 둘 다</li>
+            <li>기존 4축 엔진을 그대로 재사용해 점수 산식 공유</li>
+          </ul>
+        </div>
+        <div class="card after">
+          <div class="tag">성능 명분화</div>
+          <h3 style="font-size:2.1vw; color:var(--purple-deep);">43,650 <span class="arrow">→</span> 3,600</h3>
+          <p>후보를 퍼컬 적합도 상위로 미리 잘라 조합 폭발을 차단. <b>약 92% 감소</b>로 멈춤 해소 + 품질 향상.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 14. Daily look (추가발전) -->
+  <section class="slide">
+    <div class="kicker add">추가발전 · 처음 선보이는 기능</div>
+    <h2>데일리룩 — 나만의 룩 이미지</h2>
+    <div class="slide-body">
+      <ul>
+        <li>저장한 코디를 보드에 <b>자동 배치</b> — 위치·크기·회전·앞뒤 순서 조정</li>
+        <li><b>텍스트 레이어</b> — 문구·색·크기·회전 편집, 드래그·리사이즈</li>
+        <li><b>옷 추가 picker</b> — 옷장·카탈로그, 카테고리·시즌 필터, 퍼컬 추천순</li>
+        <li>누끼(배경 제거) <b>자동 처리</b> → 완성 보드를 한 장의 PNG로 저장</li>
+      </ul>
+      <p class="note">추천으로 끝나지 않고, 고른 코디를 이미지로 완성하는 단계까지 앱 안에서 끝납니다.</p>
+    </div>
+  </section>
+
+  <!-- 15. Numbers -->
+  <section class="slide">
+    <div class="kicker">수치 요약</div>
+    <h2>한눈에 보는 개선</h2>
+    <div class="slide-body">
+      <div class="stat-row">
+        <div class="stat"><div class="num">26</div><div class="lbl">baseline 대비 커밋</div></div>
+        <div class="stat"><div class="num">28</div><div class="lbl">명명 상수 (조화 17)</div></div>
+        <div class="stat"><div class="num">23</div><div class="lbl">추천 단위 테스트</div></div>
+        <div class="stat"><div class="num">92%↓</div><div class="lbl">코디 탐색 조합 수</div></div>
+      </div>
+      <div class="stat-row" style="margin-top:1.8vh;">
+        <div class="stat"><div class="num">38·28·22·12</div><div class="lbl">4축 가중치(%)</div></div>
+        <div class="stat"><div class="num">50·30·20</div><div class="lbl">조화 분해(%)</div></div>
+        <div class="stat"><div class="num">89.74%</div><div class="lbl">3계절 분류 정확도 (516장 기준)</div></div>
+        <div class="stat"><div class="num">89·85·84</div><div class="lbl">점수 불변 회귀</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 16. Future -->
+  <section class="slide">
+    <div class="kicker add">향후 발전 방향</div>
+    <h2>다음 단계</h2>
+    <div class="slide-body">
+      <div class="two-col">
+        <div class="col">
+          <h3>제품 · 추천</h3>
+          <ul>
+            <li>추천 방식(데일리·오피스·데이트)을 <b>점수에 실제 반영</b></li>
+            <li>신발·액세서리까지 기준이 되는 코디 탐색</li>
+            <li>색 계열 단위 다양성으로 더 폭넓은 조합</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h3>시스템 · 연구</h3>
+          <ul>
+            <li>옷 사진 → 계절·색·카테고리 <b>자동 등록</b> end-to-end</li>
+            <li>고른 코디 <b>실시간 평가 피드백</b></li>
+            <li>LLM 비전으로 패턴·소재 태깅 (데이터 입력 한정)</li>
+            <li>협업 필터링 · 모델 경량화</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 17. Closing -->
+  <section class="slide closing">
+    <div class="kicker">마무리</div>
+    <h1>설명 가능한 코디 평가 엔진으로</h1>
+    <div class="slide-body" style="flex:none; margin-top:3vh;">
+      <div class="quote">진단·옷장·날씨를 연결해 추천을 “제공”하던 수준에서,<br/>추천이 <b>왜 그렇게 나왔는지 설명할 수 있고</b>, 코디를 이미지로 완성하는 단계까지 — 한 흐름으로 발전시켰습니다.</div>
+      <p class="sub" style="margin-top:4vh;">감사합니다.</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="progress" id="progressbar"></div>
+<div class="counter" id="counter">1 / 17</div>
+<div class="deck-title">퍼스널컬러 AI 옷장 어시스턴트 — 개선·추가발전 발표</div>
+<div class="hint">← → 또는 Space 이동 · F11 전체화면 · Ctrl+P로 PDF 저장</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  let idx = 0;
+  const counter = document.getElementById('counter');
+  const bar = document.getElementById('progressbar');
+  function show(n) {
+    idx = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+    counter.textContent = (idx + 1) + ' / ' + slides.length;
+    bar.style.width = ((idx + 1) / slides.length * 100) + '%';
+  }
+  function next() { show(idx + 1); }
+  function prev() { show(idx - 1); }
+  document.addEventListener('keydown', (e) => {
+    if (['ArrowRight', ' ', 'PageDown'].includes(e.key)) { e.preventDefault(); next(); }
+    else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); prev(); }
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+  });
+  document.getElementById('deck').addEventListener('click', (e) => {
+    if (e.clientX < window.innerWidth * 0.25) prev(); else next();
+  });
+  show(0);
+</script>
+</body>
+</html>

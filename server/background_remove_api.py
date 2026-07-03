@@ -155,6 +155,22 @@ def target_ids(target_part: str) -> set[int]:
     return label_groups[target_part]
 
 
+# 5개 카테고리(상의/하의/아우터/신발/가방)의 메인 라벨 픽셀 수로 지배 카테고리를 정합니다.
+# 'auto' 누끼와 detectedCategory가 공유하는 순수 함수라 모델 없이 단위 테스트가 가능합니다.
+_CATEGORY_MAIN_IDS = {"upper": {1, 2, 3, 6}, "lower": {7, 8, 9}, "outer": {4, 5, 10, 13}, "shoe": {24}, "bag": {25}}
+_AUTO_TARGET_BY_CATEGORY = {"upper": "upper", "lower": "lower", "outer": "outer", "shoe": "shoes", "bag": "bag"}
+
+
+def detect_dominant_category(pred: Any) -> tuple[str | None, dict[str, int]]:
+    """픽셀 라벨 맵에서 카테고리별 픽셀 수를 세어 가장 많은 카테고리와 점수표를 돌려줍니다."""
+    import numpy as np
+
+    scores = {category: int(np.isin(pred, list(ids)).sum()) for category, ids in _CATEGORY_MAIN_IDS.items()}
+    if not any(value > 0 for value in scores.values()):
+        return None, scores
+    return max(scores, key=scores.get), scores
+
+
 def get_fashion_model():
     """정밀 누끼 모델은 무거우므로 첫 정밀 요청 때만 로드합니다."""
     global fashion_processor, fashion_model, fashion_device
@@ -310,13 +326,20 @@ async def extract_clothing(file: UploadFile = File(...), targetPart: str = Form(
         image = Image.open(BytesIO(raw)).convert("RGB")
         image = resize_for_model(image)
         pred = run_fashion_segmentation(image)
-        ids = target_ids(targetPart)
         import numpy as np
 
-        # 모델의 픽셀별 label map에서 사용자가 요청한 부위 id만 True로 남깁니다.
+        # 'auto'면 5개 카테고리 픽셀량으로 지배 카테고리를 먼저 정하고 그 부위만 마스킹한다(신발·가방 사진 지원).
+        auto_dominant = None
+        if targetPart == "auto":
+            auto_dominant = detect_dominant_category(pred)[0] or "upper"
+            ids = target_ids(_AUTO_TARGET_BY_CATEGORY[auto_dominant])
+        else:
+            ids = target_ids(targetPart)
+
+        # 모델의 픽셀별 label map에서 요청한(또는 자동 감지된) 부위 id만 True로 남깁니다.
         mask = np.isin(pred, list(ids))
         # dress/jumpsuit는 상하의 요청에서 같이 살립니다.
-        if targetPart in {"upper", "lower", "upper_lower"}:
+        if targetPart in {"upper", "lower", "upper_lower"} or auto_dominant in {"upper", "lower"}:
             mask = mask | np.isin(pred, [11, 12])
         mask = clean_boolean_mask(mask)
         if mask.sum() == 0:
@@ -327,15 +350,8 @@ async def extract_clothing(file: UploadFile = File(...), targetPart: str = Form(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"정밀 누끼에 실패했습니다: {exc}") from exc
 
-    # 픽셀 수 기준으로 주요 의류 그룹(상의/하의/아우터)을 자동 감지합니다.
-    _UPPER_IDS = {1, 2, 3, 6}
-    _LOWER_IDS = {7, 8, 9}
-    _OUTER_IDS = {4, 5, 10, 13}
-    upper_px = int(np.isin(pred, list(_UPPER_IDS)).sum())
-    lower_px = int(np.isin(pred, list(_LOWER_IDS)).sum())
-    outer_px = int(np.isin(pred, list(_OUTER_IDS)).sum())
-    _category_scores = {"upper": upper_px, "lower": lower_px, "outer": outer_px}
-    detected_category = max(_category_scores, key=_category_scores.get) if any(v > 0 for v in _category_scores.values()) else None
+    # 픽셀 수 기준으로 주요 카테고리(상의/하의/아우터/신발/가방)를 자동 감지합니다.
+    detected_category = auto_dominant if auto_dominant else detect_dominant_category(pred)[0]
 
     # 실제로 감지된 의류 종류 레이블(fine_labels)을 수집합니다.
     _FINE_LABEL_MAP = {
@@ -350,7 +366,7 @@ async def extract_clothing(file: UploadFile = File(...), targetPart: str = Form(
     ]
 
     # upper_lower 요청 시 자동 감지 카테고리로 계절 예측 정확도를 높입니다.
-    predict_part = detected_category if (targetPart == "upper_lower" and detected_category) else targetPart
+    predict_part = detected_category if (targetPart in {"upper_lower", "auto"} and detected_category) else targetPart
 
     try:
         from season_predictor import predict as predict_season

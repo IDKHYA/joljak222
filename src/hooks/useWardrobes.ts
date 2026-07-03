@@ -1,5 +1,5 @@
 // 옷장과 의류 상태를 localStorage와 함께 관리하는 훅입니다.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CatalogItem } from '../data/trainingCatalog';
 import type { FinalResult } from '../types';
 import type { ClothingItem, Wardrobe } from '../wardrobeTypes';
@@ -7,6 +7,7 @@ import { STORAGE_KEYS } from '../wardrobeConstants';
 import { buildColorMeta, normalizePatternType, normalizeSeasonTag } from '../services/clothingMeta';
 import { scoreItemForPersonalColor } from '../services/recommendationEngine';
 import { loadJson, saveJson } from '../services/storage';
+import { deleteItemImages, offloadImages, rehydrateImages } from '../services/imageStore';
 
 export const INITIAL_WARDROBES: Wardrobe[] = [
   { id: 'w-demo-1', name: '출근용 옷장', createdAt: '2026-04-24T00:00:00.000Z' },
@@ -64,6 +65,20 @@ export function useWardrobes(personalColorResult: FinalResult | null, catalogIte
   const [clothingItems, setClothingItems] = useState<ClothingItem[]>(() => reconcileStoredClothing(loadJson(STORAGE_KEYS.clothing, INITIAL_CLOTHING), catalogItems));
   const [selectedWardrobeId, setSelectedWardrobeId] = useState(() => INITIAL_WARDROBES[0].id);
 
+  // 마운트 시 localStorage의 'idb:' 마커를 IndexedDB의 실제 이미지로 복원한다(업로드 이미지는 IDB가 보관).
+  useEffect(() => {
+    let active = true;
+    rehydrateImages(loadJson(STORAGE_KEYS.clothing, INITIAL_CLOTHING))
+      .then((hydrated) => {
+        if (active) setClothingItems(reconcileStoredClothing(hydrated, catalogItems));
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const scoredItems = useMemo(() => clothingItems.map((item) => scoreItemForPersonalColor(item, personalColorResult)), [clothingItems, personalColorResult]);
   const activeWardrobe = wardrobes.find((wardrobe) => wardrobe.id === selectedWardrobeId) ?? wardrobes[0];
   const activeItems = scoredItems.filter((item) => item.wardrobeId === activeWardrobe?.id);
@@ -78,15 +93,23 @@ export function useWardrobes(personalColorResult: FinalResult | null, catalogIte
     saveJson(STORAGE_KEYS.wardrobes, next);
   };
 
+  // 의류를 저장한다. 업로드 이미지(data URL)는 IndexedDB로 오프로드하고 localStorage엔 마커만 남겨 용량 초과를 막는다.
+  // 오프로드 실패 시 원본을 그대로 저장해 데이터 유실을 방지한다.
+  const saveClothing = (next: ClothingItem[]) => {
+    offloadImages(next)
+      .then((light) => saveJson(STORAGE_KEYS.clothing, light))
+      .catch(() => saveJson(STORAGE_KEYS.clothing, next));
+  };
+
   const persistClothing = (next: ClothingItem[]) => {
     setClothingItems(next);
-    saveJson(STORAGE_KEYS.clothing, next);
+    saveClothing(next);
   };
 
   const updateClothingItems = (updater: (items: ClothingItem[]) => ClothingItem[]) => {
     setClothingItems((prev) => {
       const next = updater(prev);
-      saveJson(STORAGE_KEYS.clothing, next);
+      saveClothing(next);
       return next;
     });
   };
@@ -98,7 +121,10 @@ export function useWardrobes(personalColorResult: FinalResult | null, catalogIte
     return wardrobe.id;
   };
 
-  const deleteClothing = (id: string) => persistClothing(clothingItems.filter((item) => item.id !== id));
+  const deleteClothing = (id: string) => {
+    void deleteItemImages(id);
+    persistClothing(clothingItems.filter((item) => item.id !== id));
+  };
 
   const renameWardrobe = (id: string, name: string) => {
     const trimmed = name.trim();
@@ -108,6 +134,7 @@ export function useWardrobes(personalColorResult: FinalResult | null, catalogIte
 
   const deleteWardrobe = (id: string) => {
     const nextWardrobes = wardrobes.filter((wardrobe) => wardrobe.id !== id);
+    clothingItems.filter((item) => item.wardrobeId === id).forEach((item) => void deleteItemImages(item.id));
     persistWardrobes(nextWardrobes);
     persistClothing(clothingItems.filter((item) => item.wardrobeId !== id));
     setSelectedWardrobeId(nextWardrobes[0]?.id ?? '');

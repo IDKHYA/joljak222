@@ -58,6 +58,7 @@ export interface ClothingItem {
   };
   pattern: PatternType;
   warmthLevel: WarmthLevel;
+  isDenim?: boolean;
   availability: AvailabilityStatus;
   analysis: {
     status: 'manual' | 'draft' | 'confirmed';
